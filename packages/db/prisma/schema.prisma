@@ -41,16 +41,41 @@ model TenantMember{
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
 }
 
 model EndUser{
   id          String      @id       @default(uuid())
-  email       String      @unique
-  password    String
+  tenantId    String
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  externalId  String
+
+  email       String?
+  phone       String?
+  name        String?
+  pushToken   String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // notifications Notification[]
+  notifications Notification[]
+
+  @@unique([tenantId, externalId])
+  @@index([tenantId])
+  @@index([tenantId, email])
+  @@index([tenantId, phone])  
+}
+
+
+
+
+enum TenantMemberRole {
+  OWNER
+  ADMIN
+  DEVELOPER
+  VIEWER
 }
 
