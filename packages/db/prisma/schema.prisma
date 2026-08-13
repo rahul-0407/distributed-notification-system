@@ -12,6 +12,16 @@ datasource db {
   provider = "postgresql"
 }
 
+model PlatformAdmin {
+  id String @id @default(uuid()) 
+  email String @unique 
+  passwordHash String 
+  name String? 
+  role PlatformRole @default(ADMIN) 
+  createdAt DateTime @default(now()) 
+  updatedAt DateTime @updatedAt 
+}
+
 model Tenant{
   id          String      @id       @default(uuid())
   name        String
@@ -22,9 +32,9 @@ model Tenant{
 
   members TenantMember[]
   users   EndUser[]
-  // apiKeys     ApiKey[]
-  // notifications Notification[]
-  // idempotencyKeys IdempotencyKey[]
+  apiKeys     ApiKey[]
+  notifications Notification[]
+  idempotencyKeys IdempotencyKey[]
 }
 
 model TenantMember{
@@ -70,6 +80,111 @@ model EndUser{
 }
 
 
+model ApiKey{
+  id          String      @id       @default(uuid())
+  tenantId    String
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  name        String
+
+  keyHash     String   @unique
+
+  keyPrefix   String?
+  
+  lastUsedAt  DateTime?
+
+  expiresAt   DateTime?
+
+  revokedAt   DateTime?
+
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId])  
+}
+
+model Notification{
+  id          String      @id       @default(uuid())
+  tenantId    String
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  userId      String
+  user        EndUser     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  eventId     String
+
+  eventType   String
+
+  title       String?
+  body        String?
+
+  status      NotificationStatus @default(PENDING)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  attempts    NotificationAttempt[]
+
+  @@unique([tenantId, eventId])
+  @@index([tenantId])
+  @@index([tenantId, userId])
+  @@index([tenantId, status])
+  @@index([tenantId, createdAt])
+}
+
+model NotificationAttempt {
+  id              String   @id @default(uuid())
+
+  notificationId  String
+  notification    Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  channel         NotificationChannel
+
+  status          AttemptStatus @default(PENDING)
+
+  attemptNumber   Int @default(1)
+
+  providerId      String?
+
+  errorCode       String?
+  errorMessage    String?
+
+  nextRetryAt     DateTime?
+  lastAttemptAt   DateTime?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([notificationId])
+  @@index([channel, status])
+  @@index([nextRetryAt])
+}
+
+
+model IdempotencyKey {
+  id             String   @id @default(uuid())
+
+  tenantId       String
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  key            String
+
+  notificationId String?
+
+  createdAt      DateTime @default(now())
+
+  expiresAt      DateTime?
+
+  @@unique([tenantId, key])
+  @@index([tenantId])
+  @@index([expiresAt])
+}
+
+enum PlatformRole { 
+  SUPER_ADMIN 
+  ADMIN 
+  SUPPORT 
+  READ_ONLY 
+}
 
 
 enum TenantMemberRole {
@@ -77,5 +192,30 @@ enum TenantMemberRole {
   ADMIN
   DEVELOPER
   VIEWER
+}
+
+enum NotificationStatus {
+  PENDING
+  PROCESSING
+  PARTIALLY_SENT
+  SENT
+  FAILED
+  DLQ
+}
+
+enum NotificationChannel {
+  EMAIL
+  PUSH
+  SMS
+}
+
+
+enum AttemptStatus {
+  PENDING
+  PROCESSING
+  SENT
+  FAILED
+  RETRYING
+  DLQ
 }
 
