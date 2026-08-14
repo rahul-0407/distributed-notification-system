@@ -1,8 +1,8 @@
-import { Router } from "express"
-import * as notificationController from "../controllers/notification"
+import { Router } from "express";
+import * as notificationController from "../controllers/notification";
 
-const router = Router()
+const router = Router();
 
-router.post("/notification", notificationController.sendNotification)
+router.post("/", notificationController.sendNotification);
 
-export default router
+export default router;
