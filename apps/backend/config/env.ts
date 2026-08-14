@@ -16,8 +16,9 @@ const dbUrl = Bun.env.DATABASE_URL ?? Bun.env.POSTGRES_URL ?? Bun.env.SUPABASE_D
 export const env = {
   port: Number(optional("PORT", "4000")),
   baseUrl: optional("BASE_URL", "https://localhost:4000"),
+  jwtSecret: optional("JWT_SECRET", "qwertyuiopasdfghjklzxcvbnm"),
 
-  redisUrl: required("REDIS_URL"),
+  redisUrl: optional("REDIS_URL", "redis://localhost:6379"),
 
   kafkaBrokers: optional("KAFKA_BROKERS", "localhost:9092"),
   kafkaClientId: optional("KAFKA_CLIENT_ID", "url-shortener-backend"),
