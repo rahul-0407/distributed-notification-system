@@ -7,6 +7,8 @@ import tenantRoutes from "./routes/tenant";
 import notificationRoutes from "./routes/notification";
 import analyticNotificationRoutes from "./routes/analyticNotification";
 
+import { errorHandler } from "./middleware/errorHandler";
+
 const app = express();
 
 app.use(
@@ -32,10 +34,7 @@ app.use((_req, res) => {
   res.status(404).json({ error: "Not found" });
 });
 
-app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error("[server] unhandled error:", err);
-  res.status(500).json({ error: "Internal server error" });
-});
+app.use(errorHandler);
 
 app.listen(env.port, () => {
   console.log(`Server is running on port ${env.port}`);
