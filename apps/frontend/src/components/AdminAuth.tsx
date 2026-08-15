@@ -44,8 +44,20 @@ export const AdminAuth: React.FC<AdminAuthProps> = ({ navigate, onAdminLogin }) 
         credentials: "include",
         body: JSON.stringify({ email: sanitizedEmail, password }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Platform Admin Authentication Failed.");
+
+      const text = await res.text();
+      let data: any = {};
+      if (text) {
+        try {
+          data = JSON.parse(text);
+        } catch {
+          data = { error: text };
+        }
+      }
+
+      if (!res.ok) {
+        throw new Error(data.error || data.message || "Platform Admin Authentication Failed.");
+      }
 
       onAdminLogin({
         admin: data.admin,
