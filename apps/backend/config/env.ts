@@ -10,12 +10,11 @@ function optional(name: string, fallback: string): string {
   return Bun.env[name] ?? fallback;
 }
 
-
 const dbUrl = Bun.env.DATABASE_URL ?? Bun.env.POSTGRES_URL ?? Bun.env.SUPABASE_DB_URL ?? "";
 
 export const env = {
-  port: Number(optional("PORT", "4000")),
-  baseUrl: optional("BASE_URL", "https://localhost:4000"),
+  port: Number(optional("PORT", "5000")),
+  baseUrl: optional("BASE_URL", "http://localhost:5000"),
   jwtSecret: optional("JWT_SECRET", "qwertyuiopasdfghjklzxcvbnm"),
 
   redisUrl: optional("REDIS_URL", "redis://localhost:6379"),
