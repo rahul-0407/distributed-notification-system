@@ -1,0 +1,161 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg-frame: #080808;
+    --bg-outer: #000000;
+  }
+  
+  body {
+    background-color: #000000;
+    color: #f1f5f9;
+    font-family: 'Space Grotesk', 'Inter', system-ui, -apple-system, sans-serif;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, .font-heading {
+    font-family: 'Space Grotesk', sans-serif;
+    letter-spacing: -0.03em;
+  }
+
+  code, pre, .font-mono {
+    font-family: 'JetBrains Mono', monospace;
+  }
+}
+
+.liquid-rainbow-mesh {
+  background: radial-gradient(circle at 30% 20%, rgba(16, 185, 129, 0.45) 0%, rgba(245, 158, 11, 0.35) 25%, rgba(6, 182, 212, 0.35) 50%, rgba(236, 72, 153, 0.3) 75%, rgba(139, 92, 246, 0.2) 100%);
+  filter: blur(40px);
+}
+
+.diagonal-stripes {
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(255, 255, 255, 0.04),
+    rgba(255, 255, 255, 0.04) 1px,
+    transparent 1px,
+    transparent 8px
+  );
+}
+
+.floating-faq-glow {
+  background-image: url('/faq-mesh.png');
+  background-size: cover;
+  background-position: center;
+  mask-image: radial-gradient(circle at center, rgba(0, 0, 0, 1) 35%, rgba(0, 0, 0, 0) 75%);
+  -webkit-mask-image: radial-gradient(circle at center, rgba(0, 0, 0, 1) 35%, rgba(0, 0, 0, 0) 75%);
+}
+
+.hero-matrix-glow {
+  background: radial-gradient(circle at 50% 50%, rgba(16, 185, 129, 0.3) 0%, rgba(245, 158, 11, 0.25) 30%, rgba(6, 182, 212, 0.2) 60%, transparent 100%);
+}
+
+.framed-container {
+  max-width: 1240px;
+  margin-left: auto;
+  margin-right: auto;
+  background-color: #080808;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.pill-white {
+  background-color: #ffffff;
+  color: #000000;
+  font-weight: 600;
+  border-radius: 9999px;
+  transition: all 0.2s ease;
+}
+
+.pill-white:hover {
+  background-color: #e2e8f0;
+  transform: translateY(-1px);
+}
+
+.pill-dark {
+  background-color: rgba(255, 255, 255, 0.06);
+  color: #e2e8f0;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 9999px;
+  transition: all 0.2s ease;
+}
+
+.pill-dark:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.led-bar-green {
+  background: linear-gradient(90deg, #10b981 0%, #059669 100%);
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.5);
+}
+
+.led-bar-red {
+  background: linear-gradient(90deg, #ef4444 0%, #dc2626 100%);
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.5);
+}
+
+@keyframes marquee {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee {
+  display: flex;
+  width: max-content;
+  animation: marquee 38s linear infinite;
+}
+
+@keyframes meshCrossfade {
+  0%, 100% {
+    opacity: 0.95;
+  }
+  50% {
+    opacity: 0.05;
+  }
+}
+
+.animate-mesh-crossfade {
+  animation: meshCrossfade 8s ease-in-out infinite;
+}
+
+@keyframes rotateEarth {
+  0% {
+    transform: rotate(0deg) scale(1.05);
+  }
+  50% {
+    transform: rotate(180deg) scale(1.15);
+  }
+  100% {
+    transform: rotate(360deg) scale(1.05);
+  }
+}
+
+.animate-earth-rotate {
+  animation: rotateEarth 28s linear infinite;
+}
+
+.radial-mesh-mask {
+  mask-image: radial-gradient(circle at center, black 25%, rgba(0, 0, 0, 0.7) 50%, transparent 70%);
+  -webkit-mask-image: radial-gradient(circle at center, black 25%, rgba(0, 0, 0, 0.7) 50%, transparent 70%);
+}
+
+@keyframes shineSweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-shine-sweep {
+  animation: shineSweep 7s ease-in-out infinite;
+}
