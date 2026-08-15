@@ -1,6 +1,13 @@
 import type { Request, Response } from "express";
 import { prisma } from "db/client";
-import { hashPassword, verifyPassword, generateToken } from "../utils/auth";
+import {
+  hashPassword,
+  verifyPassword,
+  generateToken,
+  setAuthCookie,
+  clearAuthCookie,
+  TENANT_COOKIE_NAME,
+} from "../utils/auth";
 
 
 export async function signupTenant(req: Request, res: Response): Promise<void> {
@@ -43,7 +50,6 @@ export async function signupTenant(req: Request, res: Response): Promise<void> {
 
     const passwordHash = await hashPassword(finalPassword);
 
-   
     const { tenant, owner } = await prisma.$transaction(async (tx) => {
       const newTenant = await tx.tenant.create({
         data: {
@@ -72,6 +78,13 @@ export async function signupTenant(req: Request, res: Response): Promise<void> {
       role: owner.role,
       userType: "TENANT_MEMBER",
     });
+
+
+
+    setAuthCookie(res, TENANT_COOKIE_NAME, token);
+
+
+
 
     res.status(201).json({
       message: "Tenant registered successfully",
@@ -131,6 +144,10 @@ export async function loginTenantMember(req: Request, res: Response): Promise<vo
       userType: "TENANT_MEMBER",
     });
 
+    setAuthCookie(res, TENANT_COOKIE_NAME, token);
+
+
+
     res.status(200).json({
       message: "Login successful",
       token,
@@ -152,6 +169,65 @@ export async function loginTenantMember(req: Request, res: Response): Promise<vo
     res.status(500).json({ error: "Failed to log in tenant member" });
   }
 }
+
+export async function logoutTenantMember(_req: Request, res: Response): Promise<void> {
+
+  try {
+
+    
+    clearAuthCookie(res, TENANT_COOKIE_NAME);
+    res.status(200).json({ message: "Tenant member logged out successfully" });
+
+  } catch (error) {
+    console.error("logoutTenantMember error:", error);
+    res.status(500).json({ error: "Failed to log out tenant member" });
+  }
+}
+
+export async function getTenantMemberMe(req: Request, res: Response): Promise<void> {
+  try {
+    if (!req.member) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    const member = await prisma.tenantMember.findUnique({
+      where: { id: req.member.memberId },
+      include: {
+        tenant: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+
+    if (!member) {
+      res.status(404).json({ error: "Tenant member profile not found" });
+      return;
+    }
+
+    res.status(200).json({
+      member: {
+        id: member.id,
+        tenantId: member.tenantId,
+        email: member.email,
+        name: member.name,
+        role: member.role,
+        tenant: member.tenant,
+        createdAt: member.createdAt,
+        updatedAt: member.updatedAt,
+      },
+    });
+  } catch (error) {
+    console.error("getTenantMemberMe error:", error);
+    res.status(500).json({ error: "Failed to fetch tenant member profile" });
+  }
+}
+
 
 export async function createTenant(req: Request, res: Response): Promise<void> {}
 export async function getAllTenants(req: Request, res: Response): Promise<void> {}
