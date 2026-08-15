@@ -289,7 +289,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ navigate }) => {
               </p>
             </div>
 
-            <div className="lg:col-span-6 p-8 md:p-12 flex items-center justify-center relative overflow-hidden min-h-[380px] bg-[#040404]">
+            <div className="lg:col-span-6 p-8 md:p-12 flex items-center justify-center relative overflow-hidden min-h-95 bg-[#040404]">
               <div className="w-full max-w-md bg-[#030303]/90 border border-white/10 p-6 rounded-2xl backdrop-blur-md space-y-4">
                 <div className="flex justify-between text-xs font-mono">
                   <span className="text-slate-400 font-medium">Failover Latency</span>
@@ -321,7 +321,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ navigate }) => {
               </p>
             </div>
 
-            <div className="lg:col-span-6 p-8 md:p-12 flex items-center justify-center relative overflow-hidden min-h-[380px] bg-[#040404]">
+            <div className="lg:col-span-6 p-8 md:p-12 flex items-center justify-center relative overflow-hidden min-h-95 bg-[#040404]">
               <div className="w-full max-w-md space-y-4">
                 <div className="bg-[#030303]/90 border border-white/10 p-5 rounded-2xl backdrop-blur-md flex items-center justify-between">
                   <div className="led-bar-red h-4 w-40 rounded-full"></div>
@@ -469,15 +469,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({ navigate }) => {
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 divide-y divide-white/10 md:divide-y-0 divide-x divide-white/10 border-b border-white/10 bg-[#080808]">
-            <div className="p-8 md:p-10 flex flex-col justify-between space-y-8 relative overflow-hidden bg-[#080808] min-h-[320px]">
+          <div className="grid grid-cols-1 md:grid-cols-3 divide-y divide-white/10 md:divide-y-0 divide-x border-b border-white/10 bg-[#080808]">
+            <div className="p-8 md:p-10 flex flex-col justify-between space-y-8 relative overflow-hidden bg-[#080808] min-h-80">
               <img
                 src="/metric-mesh-1.png"
                 alt="Metric Mesh 1"
                 className="absolute right-0 bottom-0 top-0 w-3/5 object-cover opacity-60 pointer-events-none"
               />
 
-              <div className="absolute inset-0 bg-gradient-to-r from-black via-black/80 to-transparent pointer-events-none"></div>
+              <div className="absolute inset-0 bg-linear-to-r from-black via-black/80 to-transparent pointer-events-none"></div>
 
               <div className="relative z-10 space-y-6">
                 <div className="w-10 h-10 rounded-full border border-white/10 bg-white/5 flex items-center justify-center text-slate-300">
@@ -495,14 +495,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({ navigate }) => {
               </div>
             </div>
 
-            <div className="p-8 md:p-10 flex flex-col justify-between space-y-8 relative overflow-hidden bg-[#080808] min-h-[320px]">
+            <div className="p-8 md:p-10 flex flex-col justify-between space-y-8 relative overflow-hidden bg-[#080808] min-h-80">
               <img
                 src="/metric-mesh-2.png"
                 alt="Metric Mesh 2"
                 className="absolute right-0 bottom-0 top-0 w-3/5 object-cover opacity-60 pointer-events-none"
               />
 
-              <div className="absolute inset-0 bg-gradient-to-r from-black via-black/80 to-transparent pointer-events-none"></div>
+              <div className="absolute inset-0 bg-linear-to-r from-black via-black/80 to-transparent pointer-events-none"></div>
 
               <div className="relative z-10 space-y-6">
                 <div className="w-10 h-10 rounded-full border border-white/10 bg-white/5 flex items-center justify-center text-slate-300">
@@ -520,14 +520,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({ navigate }) => {
               </div>
             </div>
 
-            <div className="p-8 md:p-10 flex flex-col justify-between space-y-8 relative overflow-hidden bg-[#080808] min-h-[320px]">
+            <div className="p-8 md:p-10 flex flex-col justify-between space-y-8 relative overflow-hidden bg-[#080808] min-h-80">
               <img
                 src="/metric-mesh-3.png"
                 alt="Metric Mesh 3"
                 className="absolute right-0 bottom-0 top-0 w-3/5 object-cover opacity-60 pointer-events-none"
               />
 
-              <div className="absolute inset-0 bg-gradient-to-r from-black via-black/80 to-transparent pointer-events-none"></div>
+              <div className="absolute inset-0 bg-linear-to-r from-black via-black/80 to-transparent pointer-events-none"></div>
 
               <div className="relative z-10 space-y-6">
                 <div className="w-10 h-10 rounded-full border border-white/10 bg-white/5 flex items-center justify-center text-slate-300">
@@ -607,7 +607,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ navigate }) => {
                 className="absolute inset-0 w-full h-full object-cover opacity-75 pointer-events-none"
               />
 
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/70 pointer-events-none"></div>
+              <div className="absolute inset-0 bg-linear-to-t from-black/90 via-black/40 to-black/70 pointer-events-none"></div>
 
               <div className="space-y-6 relative z-10">
                 <div>
@@ -721,9 +721,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ navigate }) => {
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 min-h-[520px] p-8 md:p-14 border-b border-white/10">
-            <div className="lg:col-span-5 relative flex items-center justify-center min-h-[380px] bg-[#080808]">
-              <div className="floating-faq-glow w-full max-w-md h-[360px] pointer-events-none"></div>
+          <div className="grid grid-cols-1 lg:grid-cols-12 min-h-130 p-8 md:p-14 border-b border-white/10">
+            <div className="lg:col-span-5 relative flex items-center justify-center min-h-95 bg-[#080808]">
+              <div className="floating-faq-glow w-full max-w-md h-90 pointer-events-none"></div>
             </div>
 
             <div className="lg:col-span-7 flex items-center">
@@ -732,17 +732,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({ navigate }) => {
                   <div key={idx} className="group">
                     <button
                       onClick={() => setActiveFaq(activeFaq === idx ? null : idx)}
-                      className="w-full py-4.5 px-6 flex items-center justify-between text-left font-heading text-sm sm:text-base font-normal text-slate-200 hover:text-white hover:bg-white/[0.02] transition-colors"
+                      className="w-full py-4.5 px-6 flex items-center justify-between text-left font-heading text-sm sm:text-base font-normal text-slate-200 hover:text-white hover:bg-white/2 transition-colors"
                     >
                       <span>{faq.q}</span>
                       {activeFaq === idx ? (
-                        <Minus className="h-4 w-4 text-white flex-shrink-0" />
+                        <Minus className="h-4 w-4 text-white shrink-0" />
                       ) : (
-                        <Plus className="h-4 w-4 text-slate-400 group-hover:text-white flex-shrink-0" />
+                        <Plus className="h-4 w-4 text-slate-400 group-hover:text-white shrink-0" />
                       )}
                     </button>
                     {activeFaq === idx && (
-                      <div className="px-6 pb-5 text-xs sm:text-sm text-slate-400 leading-relaxed font-sans border-t border-white/5 pt-3 bg-white/[0.01]">
+                      <div className="px-6 pb-5 text-xs sm:text-sm text-slate-400 leading-relaxed font-sans border-t border-white/5 pt-3 bg-white/1">
                         {faq.a}
                       </div>
                     )}

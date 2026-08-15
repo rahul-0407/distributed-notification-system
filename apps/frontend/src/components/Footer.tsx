@@ -15,7 +15,7 @@ export const Footer: React.FC<FooterProps> = ({ navigate }) => {
           className="absolute inset-0 w-full h-full object-cover opacity-75 pointer-events-none"
         />
 
-        <div className="relative z-10 p-8 md:p-14 min-h-[460px] flex flex-col justify-between">
+        <div className="relative z-10 p-8 md:p-14 min-h-115 flex flex-col justify-between">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start">
             <div className="md:col-span-5 space-y-4">
               <div className="flex items-center gap-3">
@@ -65,8 +65,13 @@ export const Footer: React.FC<FooterProps> = ({ navigate }) => {
                     </button>
                   </li>
                   <li>
-                    <button onClick={() => navigate("admin-auth")} className="hover:text-white transition-colors  font-mono">
+                    <button onClick={() => navigate("admin-auth")} className="hover:text-white transition-colors font-mono">
                       Admin Portal
+                    </button>
+                  </li>
+                  <li>
+                    <button onClick={() => navigate("end-user-demo")} className="hover:text-white transition-colors font-mono">
+                      End User Portal Demo
                     </button>
                   </li>
                 </ul>

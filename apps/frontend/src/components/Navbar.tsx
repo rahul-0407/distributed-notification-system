@@ -44,7 +44,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, navigate }) => {
         isVisible ? "translate-y-0" : "-translate-y-full"
       }`}
     >
-      <div className="max-w-[1240px] mx-auto flex items-center justify-between px-8 py-5 bg-transparent">
+      <div className="max-w-310 mx-auto flex items-center justify-between px-8 py-5 bg-transparent">
         <div className="flex items-center cursor-pointer" onClick={() => navigate("home")}>
           <svg viewBox="0 0 24 24" fill="none" className="h-8 w-8 text-white" stroke="currentColor">
             <path d="M4 17L10 5H14L8 17H4Z" fill="currentColor" stroke="none" />

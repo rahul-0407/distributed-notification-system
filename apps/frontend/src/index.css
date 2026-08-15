@@ -140,8 +140,8 @@
 }
 
 .radial-mesh-mask {
-  mask-image: radial-gradient(circle at center, black 25%, rgba(0, 0, 0, 0.7) 50%, transparent 70%);
-  -webkit-mask-image: radial-gradient(circle at center, black 25%, rgba(0, 0, 0, 0.7) 50%, transparent 70%);
+  mask-image: radial-gradient(circle at center, black 15%, rgba(0, 0, 0, 0.5) 45%, transparent 65%);
+  -webkit-mask-image: radial-gradient(circle at center, black 15%, rgba(0, 0, 0, 0.5) 45%, transparent 65%);
 }
 
 @keyframes shineSweep {

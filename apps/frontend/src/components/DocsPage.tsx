@@ -35,7 +35,7 @@ export const DocsPage: React.FC<DocsPageProps> = ({ navigate }) => {
             alt="Docs Header Mesh"
             className="absolute right-0 top-0 bottom-0 w-2/3 object-cover opacity-30 pointer-events-none"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#080808] via-[#080808]/90 to-transparent pointer-events-none"></div>
+          <div className="absolute inset-0 bg-linear-to-r from-[#080808] via-[#080808]/90 to-transparent pointer-events-none"></div>
 
           <div className="relative z-10 px-8 md:px-14 pt-28 md:pt-36 pb-16">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/10 bg-white/5 text-xs text-slate-300 font-mono mb-4">

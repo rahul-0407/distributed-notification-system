@@ -16,7 +16,7 @@ export const MetricsPage: React.FC<MetricsPageProps> = () => {
             alt="Metrics Header Mesh"
             className="absolute right-0 top-0 bottom-0 w-2/3 object-cover opacity-30 pointer-events-none"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#080808] via-[#080808]/90 to-transparent pointer-events-none"></div>
+          <div className="absolute inset-0 bg-linear-to-r from-[#080808] via-[#080808]/90 to-transparent pointer-events-none"></div>
 
           <div className="relative z-10 px-8 md:px-14 pt-28 md:pt-36 pb-16">
             <h1 className="text-4xl md:text-5xl font-normal text-white tracking-tight font-heading">
@@ -29,10 +29,10 @@ export const MetricsPage: React.FC<MetricsPageProps> = () => {
         </section>
 
         <section className="p-8 md:p-14 border-b border-white/10 overflow-x-auto bg-[#080808] relative">
-          <div className="relative min-w-[700px]">
+          <div className="relative min-w-175">
             
             <div className="absolute top-0 bottom-0 left-[40%] w-[20%] overflow-hidden pointer-events-none z-10">
-              <div className="w-full h-full bg-gradient-to-r from-transparent via-white/[0.08] to-transparent animate-shine-sweep"></div>
+              <div className="w-full h-full bg-linear-to-r from-transparent via-white/8 to-transparent animate-shine-sweep"></div>
             </div>
 
             <table className="w-full text-left border-collapse table-fixed">
@@ -83,7 +83,7 @@ export const MetricsPage: React.FC<MetricsPageProps> = () => {
                 ].map((row, idx) => {
                   const IconComp = row.icon;
                   return (
-                    <tr key={idx} className="hover:bg-white/[0.02] transition-colors">
+                    <tr key={idx} className="hover:bg-white/2 transition-colors">
                       <td className="py-4 px-6 text-slate-200 font-normal flex items-center gap-3">
                         <IconComp className="h-4 w-4 text-slate-400 shrink-0" />
                         <span>{row.name}</span>
@@ -134,7 +134,7 @@ export const MetricsPage: React.FC<MetricsPageProps> = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-white/10 bg-[#080808]">
-            <div className="p-8 md:p-12 space-y-4 hover:bg-white/[0.02] transition-colors">
+            <div className="p-8 md:p-12 space-y-4 hover:bg-white/2 transition-colors">
               <div className="h-10 w-10 rounded-full border border-white/10 bg-white/5 flex items-center justify-center text-white mb-6">
                 <Network className="h-5 w-5" />
               </div>
@@ -144,7 +144,7 @@ export const MetricsPage: React.FC<MetricsPageProps> = () => {
               </p>
             </div>
 
-            <div className="p-8 md:p-12 space-y-4 hover:bg-white/[0.02] transition-colors">
+            <div className="p-8 md:p-12 space-y-4 hover:bg-white/2 transition-colors">
               <div className="h-10 w-10 rounded-full border border-white/10 bg-white/5 flex items-center justify-center text-white mb-6">
                 <Cpu className="h-5 w-5" />
               </div>
@@ -154,7 +154,7 @@ export const MetricsPage: React.FC<MetricsPageProps> = () => {
               </p>
             </div>
 
-            <div className="p-8 md:p-12 space-y-4 hover:bg-white/[0.02] transition-colors">
+            <div className="p-8 md:p-12 space-y-4 hover:bg-white/2 transition-colors">
               <div className="h-10 w-10 rounded-full border border-white/10 bg-white/5 flex items-center justify-center text-white mb-6">
                 <Share2 className="h-5 w-5" />
               </div>

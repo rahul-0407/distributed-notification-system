@@ -16,7 +16,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ navigate }) => {
             alt="Pricing Header Mesh"
             className="absolute right-0 top-0 bottom-0 w-2/3 object-cover opacity-30 pointer-events-none"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#080808] via-[#080808]/90 to-transparent pointer-events-none"></div>
+          <div className="absolute inset-0 bg-linear-to-r from-[#080808] via-[#080808]/90 to-transparent pointer-events-none"></div>
 
           <div className="relative z-10 px-8 md:px-14 pt-28 md:pt-36 pb-16">
             <h1 className="text-4xl md:text-5xl font-normal text-white tracking-tight font-heading">
@@ -28,7 +28,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ navigate }) => {
           </div>
         </section>
 
-        <section className="grid grid-cols-1 md:grid-cols-3 divide-y divide-white/10 md:divide-y-0 divide-x divide-white/10 border-b border-white/10 bg-[#080808]">
+        <section className="grid grid-cols-1 md:grid-cols-3 divide-y divide-white/10 md:divide-y-0 divide-x border-b border-white/10 bg-[#080808]">
           <div className="p-8 md:p-10 flex flex-col justify-between space-y-8 bg-[#080808]">
             <div className="space-y-6">
               <div>
@@ -79,7 +79,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({ navigate }) => {
               className="absolute inset-0 w-full h-full object-cover opacity-75 pointer-events-none"
             />
 
-            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/70 pointer-events-none"></div>
+            <div className="absolute inset-0 bg-linear-to-t from-black/90 via-black/40 to-black/70 pointer-events-none"></div>
 
             <div className="space-y-6 relative z-10">
               <div>

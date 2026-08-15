@@ -94,10 +94,10 @@ export const TenantAuth: React.FC<TenantAuthProps> = ({ initialMode = "signup", 
             </p>
           </div>
 
-          <div className="relative z-10 w-full max-w-5xl mx-auto mt-8 min-h-[500px] flex items-center justify-center">
+          <div className="relative z-10 w-full max-w-5xl mx-auto mt-8 min-h-125 flex items-center justify-center">
             
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="w-[640px] h-[640px] sm:w-[760px] sm:h-[760px] radial-mesh-mask flex items-center justify-center">
+              <div className="w-160 h-160 sm:w-190 sm:h-190 radial-mesh-mask flex items-center justify-center">
                 <img
                   src="/auth-mesh-circle.png"
                   alt="Rotating Mesh Spectrum"
@@ -106,7 +106,7 @@ export const TenantAuth: React.FC<TenantAuthProps> = ({ initialMode = "signup", 
               </div>
             </div>
 
-            <div className="relative z-20 w-full max-w-[420px] bg-black/40 border border-white/10 rounded-none py-6 px-7 backdrop-blur-xl shadow-2xl space-y-3.5">
+            <div className="relative z-20 w-full max-w-105 bg-black/40 border border-white/10 rounded-none py-6 px-7 backdrop-blur-xl shadow-2xl space-y-3.5">
               
               <div className="flex items-center justify-between text-xs font-sans text-slate-400 px-1 mb-1">
                 <span>{isLoginMode ? "Don't have an account?" : "Already registered?"}</span>

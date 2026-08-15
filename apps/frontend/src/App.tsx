@@ -10,6 +10,7 @@ import { TenantAuth } from "./components/TenantAuth";
 import { TenantDashboard } from "./components/TenantDashboard";
 import { AdminAuth } from "./components/AdminAuth";
 import { AdminDashboard } from "./components/AdminDashboard";
+import { EndUserDemo } from "./components/EndUserDemo";
 
 export function App() {
   const [currentView, setCurrentView] = useState("home");
@@ -38,11 +39,19 @@ export function App() {
   };
 
   if (currentView === "tenant-dashboard") {
-    return <TenantDashboard tenantData={tenantData} onLogout={handleLogout} />;
+    return <TenantDashboard tenantData={tenantData} onLogout={handleLogout} navigate={navigate} />;
+  }
+
+  if (currentView === "admin-auth") {
+    return <AdminAuth navigate={navigate} onAdminLogin={handleAdminLoginSuccess} />;
   }
 
   if (currentView === "admin-dashboard") {
     return <AdminDashboard adminData={adminData} onLogout={handleLogout} />;
+  }
+
+  if (currentView === "end-user-demo") {
+    return <EndUserDemo navigate={navigate} />;
   }
 
   return (
@@ -60,9 +69,6 @@ export function App() {
         )}
         {currentView === "tenant-auth-signup" && (
           <TenantAuth initialMode="signup" navigate={navigate} onSuccessLogin={handleTenantLoginSuccess} />
-        )}
-        {currentView === "admin-auth" && (
-          <AdminAuth navigate={navigate} onAdminLogin={handleAdminLoginSuccess} />
         )}
       </main>
 
