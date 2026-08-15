@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   Zap, Key, Users, Layers, Send, Shield, Plus, Copy, Check, 
   LogOut, CheckCircle2
@@ -13,9 +13,9 @@ interface TenantDashboardProps {
 export const TenantDashboard: React.FC<TenantDashboardProps> = ({ tenantData, onLogout, navigate }) => {
   const [activeTab, setActiveTab] = useState<"overview" | "apikeys" | "endusers" | "members" | "send">("overview");
   
-  const tenantId = tenantData?.tenantId || "tnt_acme_88";
-  const tenantName = tenantData?.tenantName || "Acme Corp";
-  const tenantSlug = tenantData?.slug || "acme-corp";
+  const tenantId = tenantData?.tenantId || tenantData?.tenant?.id || "tnt_acme_88";
+  const tenantName = tenantData?.tenantName || tenantData?.tenant?.name || "Acme Corp";
+  const tenantSlug = tenantData?.slug || tenantData?.tenant?.slug || "acme-corp";
 
   const [apiKeys, setApiKeys] = useState<any[]>([
     { id: "key_1", name: "Production Backend Key", keyPrefix: "sk_live_8f7b", createdAt: "2026-08-15", revoked: false },
@@ -31,6 +31,8 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({ tenantData, on
     { id: "mem_1", name: tenantData?.member?.name || "Tenant Owner", email: tenantData?.member?.email || "owner@acme.com", role: tenantData?.member?.role || "OWNER", createdAt: "2026-08-15" },
     { id: "mem_2", name: "Sarah Dev", email: "sarah@acme.com", role: "DEVELOPER", createdAt: "2026-08-15" },
   ]);
+
+  const [modalError, setModalError] = useState("");
 
   const [newKeyModal, setNewKeyModal] = useState(false);
   const [newKeyName, setNewKeyName] = useState("");
@@ -54,13 +56,51 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({ tenantData, on
   const [sendResult, setSendResult] = useState<any | null>(null);
   const [sending, setSending] = useState(false);
 
+  const fetchData = async () => {
+    if (!tenantId) return;
+    try {
+      const keysRes = await fetch(`/api/v1/tenants/${tenantId}/api-keys`, { credentials: "include" });
+      if (keysRes.ok) {
+        const data = await keysRes.json();
+        if (Array.isArray(data.apiKeys)) setApiKeys(data.apiKeys);
+      }
+    } catch {}
+
+    try {
+      const usersRes = await fetch(`/api/v1/tenants/${tenantId}/end-users`, { credentials: "include" });
+      if (usersRes.ok) {
+        const data = await usersRes.json();
+        if (Array.isArray(data.endUsers)) setEndUsers(data.endUsers);
+      }
+    } catch {}
+
+    try {
+      const membersRes = await fetch(`/api/v1/tenants/${tenantId}/members`, { credentials: "include" });
+      if (membersRes.ok) {
+        const data = await membersRes.json();
+        if (Array.isArray(data.members)) setMembers(data.members);
+      }
+    } catch {}
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, [tenantId]);
+
   const handleGenerateApiKey = async () => {
-    if (!newKeyName) return;
+    setModalError("");
+    const keyName = newKeyName.trim();
+    if (!keyName) {
+      setModalError("Key name is required.");
+      return;
+    }
+
     try {
       const res = await fetch(`/api/v1/tenants/${tenantId}/api-keys`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newKeyName }),
+        credentials: "include",
+        body: JSON.stringify({ name: keyName }),
       });
       const data = await res.json();
       if (data.apiKey) {
@@ -68,7 +108,7 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({ tenantData, on
         setApiKeys((prev) => [
           {
             id: data.key?.id || `key_${Date.now()}`,
-            name: newKeyName,
+            name: keyName,
             keyPrefix: data.apiKey.slice(0, 12),
             createdAt: new Date().toISOString().split("T")[0],
             revoked: false,
@@ -81,7 +121,7 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({ tenantData, on
         setApiKeys((prev) => [
           {
             id: `key_${Date.now()}`,
-            name: newKeyName,
+            name: keyName,
             keyPrefix: mockRaw.slice(0, 12),
             createdAt: new Date().toISOString().split("T")[0],
             revoked: false,
@@ -89,99 +129,98 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({ tenantData, on
           ...prev,
         ]);
       }
-    } catch {
-      const mockRaw = `sk_live_${Math.random().toString(36).substring(2, 18)}`;
-      setGeneratedSecretKey(mockRaw);
-      setApiKeys((prev) => [
-        {
-          id: `key_${Date.now()}`,
-          name: newKeyName,
-          keyPrefix: mockRaw.slice(0, 12),
-          createdAt: new Date().toISOString().split("T")[0],
-          revoked: false,
-        },
-        ...prev,
-      ]);
+    } catch (err: any) {
+      setModalError(err.message || "Failed to generate API key.");
     }
   };
 
   const handleAddEndUser = async () => {
-    if (!newExtId) return;
+    setModalError("");
+    const extId = newExtId.trim();
+    if (!extId) {
+      setModalError("External User ID is required.");
+      return;
+    }
+
     try {
       const res = await fetch(`/api/v1/tenants/${tenantId}/end-users`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ externalId: newExtId, email: newUserEmail, name: newUserName }),
+        credentials: "include",
+        body: JSON.stringify({
+          externalId: extId,
+          email: newUserEmail.trim(),
+          name: newUserName.trim(),
+        }),
       });
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to add end user.");
+
       setEndUsers((prev) => [
         {
           id: data.endUser?.id || `usr_${Date.now()}`,
-          externalId: newExtId,
-          email: newUserEmail || "n/a",
-          name: newUserName || "Anonymous",
+          externalId: extId,
+          email: newUserEmail.trim() || "n/a",
+          name: newUserName.trim() || "Anonymous",
           createdAt: new Date().toISOString().split("T")[0],
         },
         ...prev,
       ]);
-    } catch {
-      setEndUsers((prev) => [
-        {
-          id: `usr_${Date.now()}`,
-          externalId: newExtId,
-          email: newUserEmail || "n/a",
-          name: newUserName || "Anonymous",
-          createdAt: new Date().toISOString().split("T")[0],
-        },
-        ...prev,
-      ]);
+      setNewUserModal(false);
+      setNewExtId("");
+      setNewUserEmail("");
+      setNewUserName("");
+    } catch (err: any) {
+      setModalError(err.message || "Failed to register end user.");
     }
-    setNewUserModal(false);
-    setNewExtId("");
-    setNewUserEmail("");
-    setNewUserName("");
   };
 
   const handleAddMember = async () => {
-    if (!newMemberEmail || !newMemberPass) return;
+    setModalError("");
+    const email = newMemberEmail.trim().toLowerCase();
+    const name = newMemberName.trim();
+    if (!email || !newMemberPass) {
+      setModalError("Email and Password are required.");
+      return;
+    }
+
+    if (newMemberPass.length < 8) {
+      setModalError("Password must be at least 8 characters long.");
+      return;
+    }
+
     try {
       const res = await fetch(`/api/v1/tenants/${tenantId}/members`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
-          name: newMemberName,
-          email: newMemberEmail,
+          name: name || "Member",
+          email,
           password: newMemberPass,
           role: newMemberRole,
         }),
       });
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to invite member.");
+
       setMembers((prev) => [
         {
           id: data.member?.id || `mem_${Date.now()}`,
-          name: newMemberName || "New Member",
-          email: newMemberEmail,
+          name: name || "New Member",
+          email,
           role: newMemberRole,
           createdAt: new Date().toISOString().split("T")[0],
         },
         ...prev,
       ]);
-    } catch {
-      setMembers((prev) => [
-        {
-          id: `mem_${Date.now()}`,
-          name: newMemberName || "New Member",
-          email: newMemberEmail,
-          role: newMemberRole,
-          createdAt: new Date().toISOString().split("T")[0],
-        },
-        ...prev,
-      ]);
+      setNewMemberModal(false);
+      setNewMemberName("");
+      setNewMemberEmail("");
+      setNewMemberPass("");
+    } catch (err: any) {
+      setModalError(err.message || "Failed to add member.");
     }
-    setNewMemberModal(false);
-    setNewMemberName("");
-    setNewMemberEmail("");
-    setNewMemberPass("");
   };
 
   const handleRevokeKey = async (keyId: string) => {
@@ -219,18 +258,25 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({ tenantData, on
                 {tenantSlug}
               </span>
             </div>
-            <p className="text-[11px] font-mono text-slate-400">ID: {tenantId}</p>
+            <p className="text-[11px] font-mono text-slate-400">
+              Authenticated: {tenantData?.member?.email || "owner@acme.com"} ({tenantData?.member?.role || "OWNER"})
+            </p>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
-          <span className="text-xs text-slate-300 flex items-center gap-1.5 bg-white/5 border border-white/10 px-3 py-1.5 rounded-none font-mono">
-            <Shield className="h-3.5 w-3.5 text-emerald-400" />
-            Role: <strong className="text-white">{tenantData?.member?.role || "OWNER"}</strong>
-          </span>
+          {navigate && (
+            <button
+              onClick={() => navigate("end-user-demo")}
+              className="hidden sm:flex items-center gap-1.5 text-xs text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 px-3.5 py-2 rounded-none border border-emerald-500/20 transition-all font-mono"
+            >
+              <Zap className="h-3.5 w-3.5" /> Launch End-User Sandbox
+            </button>
+          )}
+
           <button
             onClick={onLogout}
-            className="flex items-center gap-1.5 text-xs text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-none border border-white/15 transition-all"
+            className="flex items-center gap-1.5 text-xs text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 px-3.5 py-2 rounded-none border border-white/15 transition-all font-sans"
           >
             <LogOut className="h-3.5 w-3.5" />
             Logout
@@ -250,16 +296,16 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({ tenantData, on
               activeTab === "overview" ? "bg-white text-black font-semibold shadow-lg" : "text-slate-400 hover:bg-white/5 hover:text-white"
             }`}
           >
-            <Zap className="h-4 w-4" /> Workspace Overview
+            <Layers className="h-4 w-4" /> Overview & Health
           </button>
-          
+
           <button
             onClick={() => setActiveTab("apikeys")}
             className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-none text-xs font-sans font-medium transition-all ${
               activeTab === "apikeys" ? "bg-white text-black font-semibold shadow-lg" : "text-slate-400 hover:bg-white/5 hover:text-white"
             }`}
           >
-            <Key className="h-4 w-4" /> API Keys ({apiKeys.length})
+            <Key className="h-4 w-4 text-amber-400" /> API Keys ({apiKeys.length})
           </button>
 
           <button
@@ -268,7 +314,7 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({ tenantData, on
               activeTab === "endusers" ? "bg-white text-black font-semibold shadow-lg" : "text-slate-400 hover:bg-white/5 hover:text-white"
             }`}
           >
-            <Layers className="h-4 w-4" /> End Users ({endUsers.length})
+            <Users className="h-4 w-4 text-emerald-400" /> End-Users Directory ({endUsers.length})
           </button>
 
           <button
@@ -277,7 +323,7 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({ tenantData, on
               activeTab === "members" ? "bg-white text-black font-semibold shadow-lg" : "text-slate-400 hover:bg-white/5 hover:text-white"
             }`}
           >
-            <Users className="h-4 w-4" /> Team Members ({members.length})
+            <Shield className="h-4 w-4" /> Team Members ({members.length})
           </button>
 
           <button
@@ -286,7 +332,7 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({ tenantData, on
               activeTab === "send" ? "bg-white text-black font-semibold shadow-lg" : "text-slate-400 hover:bg-white/5 hover:text-white"
             }`}
           >
-            <Send className="h-4 w-4 text-emerald-400" /> Dispatch Test Event
+            <Send className="h-4 w-4 text-cyan-400" /> Dispatch Test Event
           </button>
         </aside>
 
@@ -295,36 +341,30 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({ tenantData, on
             <div className="space-y-6">
               <div>
                 <h1 className="text-2xl sm:text-3xl font-normal text-white font-heading">
-                  Workspace Overview
+                  Workspace Telemetry
                 </h1>
                 <p className="text-xs text-slate-400 font-sans mt-1">
-                  Isolated notification infrastructure metrics for {tenantName}.
+                  Tenant Isolation Scope: <span className="font-mono text-emerald-400">{tenantId}</span>
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                 <div className="bg-[#080808] p-6 border border-white/10 rounded-none space-y-2">
-                  <span className="text-xs text-slate-400 font-mono">Total Dispatched</span>
-                  <div className="text-3xl font-heading text-white">14,290</div>
-                  <span className="text-[10px] font-mono text-emerald-400">99.98% Success Rate</span>
-                </div>
-                
-                <div className="bg-[#080808] p-6 border border-white/10 rounded-none space-y-2">
-                  <span className="text-xs text-slate-400 font-mono">Active API Keys</span>
-                  <div className="text-3xl font-heading text-white">{apiKeys.filter(k => !k.revoked).length}</div>
-                  <span className="text-[10px] font-mono text-slate-400">SHA-256 Hashed</span>
+                  <span className="text-xs font-mono text-slate-400">Total API Keys</span>
+                  <div className="text-2xl font-bold text-white font-mono">{apiKeys.length}</div>
+                  <span className="text-[10px] font-mono text-emerald-400 block">SHA-256 Encrypted</span>
                 </div>
 
                 <div className="bg-[#080808] p-6 border border-white/10 rounded-none space-y-2">
-                  <span className="text-xs text-slate-400 font-mono">End User Profiles</span>
-                  <div className="text-3xl font-heading text-white">{endUsers.length}</div>
-                  <span className="text-[10px] font-mono text-emerald-400">Scoped to Tenant</span>
+                  <span className="text-xs font-mono text-slate-400">Registered End-Users</span>
+                  <div className="text-2xl font-bold text-white font-mono">{endUsers.length}</div>
+                  <span className="text-[10px] font-mono text-emerald-400 block">Isolated under Tenant ID</span>
                 </div>
 
                 <div className="bg-[#080808] p-6 border border-white/10 rounded-none space-y-2">
-                  <span className="text-xs text-slate-400 font-mono">Avg Latency</span>
-                  <div className="text-3xl font-heading text-white">142ms</div>
-                  <span className="text-[10px] font-mono text-amber-400">Redis Queue Pool</span>
+                  <span className="text-xs font-mono text-slate-400">Queue Latency</span>
+                  <div className="text-2xl font-bold text-white font-mono">1.2ms</div>
+                  <span className="text-[10px] font-mono text-emerald-400 block">Redis Engine Active</span>
                 </div>
               </div>
             </div>
@@ -334,18 +374,20 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({ tenantData, on
             <div className="space-y-6">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                  <h1 className="text-2xl sm:text-3xl font-normal text-white font-heading">
-                    API Keys Cryptography
-                  </h1>
+                  <h1 className="text-2xl sm:text-3xl font-normal text-white font-heading">API Keys Management</h1>
                   <p className="text-xs text-slate-400 font-sans mt-1">
-                    Generate SHA-256 hashed API keys for server-side integration.
+                    API keys authenticate your backend servers to publish notification events.
                   </p>
                 </div>
                 <button
-                  onClick={() => { setNewKeyModal(true); setGeneratedSecretKey(null); }}
+                  onClick={() => {
+                    setModalError("");
+                    setGeneratedSecretKey(null);
+                    setNewKeyModal(true);
+                  }}
                   className="bg-white hover:bg-slate-200 text-black px-4 py-2.5 text-xs font-semibold rounded-none flex items-center gap-2 transition-all font-sans"
                 >
-                  <Plus className="h-4 w-4" /> Generate API Key
+                  <Plus className="h-4 w-4" /> Create API Key
                 </button>
               </div>
 
@@ -353,33 +395,33 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({ tenantData, on
                 <table className="w-full text-left text-xs text-slate-300">
                   <thead className="bg-[#0c0c0c] border-b border-white/10 text-slate-400 font-mono">
                     <tr>
-                      <th className="p-4">Key Name</th>
-                      <th className="p-4">Prefix Identifier</th>
+                      <th className="p-4">Key Identifier</th>
+                      <th className="p-4">Prefix</th>
                       <th className="p-4">Created Date</th>
                       <th className="p-4">Status</th>
                       <th className="p-4 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5 font-mono">
-                    {apiKeys.map((key) => (
-                      <tr key={key.id} className="hover:bg-white/5">
-                        <td className="p-4 font-sans font-semibold text-white">{key.name}</td>
-                        <td className="p-4 text-emerald-400">{key.keyPrefix}...</td>
-                        <td className="p-4 text-slate-400">{key.createdAt}</td>
+                    {apiKeys.map((k) => (
+                      <tr key={k.id} className="hover:bg-white/5">
+                        <td className="p-4 font-sans font-semibold text-white">{k.name}</td>
+                        <td className="p-4 text-emerald-400">{k.keyPrefix}...</td>
+                        <td className="p-4 text-slate-400">{k.createdAt}</td>
                         <td className="p-4">
-                          {key.revoked ? (
+                          {k.revoked ? (
                             <span className="text-[10px] bg-red-500/10 text-red-400 border border-red-500/20 px-2 py-0.5 rounded-none">Revoked</span>
                           ) : (
                             <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-none">Active</span>
                           )}
                         </td>
                         <td className="p-4 text-right font-sans">
-                          {!key.revoked && (
+                          {!k.revoked && (
                             <button
-                              onClick={() => handleRevokeKey(key.id)}
-                              className="text-xs text-red-400 hover:text-white bg-red-500/10 hover:bg-red-500/20 px-3 py-1 rounded-none border border-red-500/20 transition-all"
+                              onClick={() => handleRevokeKey(k.id)}
+                              className="text-xs text-red-400 hover:text-red-300 bg-red-500/10 px-3 py-1 rounded-none border border-red-500/20 transition-all"
                             >
-                              Revoke
+                              Revoke Key
                             </button>
                           )}
                         </td>
@@ -395,15 +437,16 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({ tenantData, on
             <div className="space-y-6">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                  <h1 className="text-2xl sm:text-3xl font-normal text-white font-heading">
-                    End User Directory
-                  </h1>
+                  <h1 className="text-2xl sm:text-3xl font-normal text-white font-heading">End-Users Directory</h1>
                   <p className="text-xs text-slate-400 font-sans mt-1">
-                    Recipients created automatically via notification payload or synced directly.
+                    End users are recipient profiles bound to your tenant workspace.
                   </p>
                 </div>
                 <button
-                  onClick={() => setNewUserModal(true)}
+                  onClick={() => {
+                    setModalError("");
+                    setNewUserModal(true);
+                  }}
                   className="bg-white hover:bg-slate-200 text-black px-4 py-2.5 text-xs font-semibold rounded-none flex items-center gap-2 transition-all font-sans"
                 >
                   <Plus className="h-4 w-4" /> Add End User
@@ -414,28 +457,19 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({ tenantData, on
                 <table className="w-full text-left text-xs text-slate-300">
                   <thead className="bg-[#0c0c0c] border-b border-white/10 text-slate-400 font-mono">
                     <tr>
-                      <th className="p-4">External ID</th>
-                      <th className="p-4">Name</th>
-                      <th className="p-4">Email Address</th>
+                      <th className="p-4">External User ID</th>
+                      <th className="p-4">Full Name</th>
+                      <th className="p-4">Email</th>
                       <th className="p-4">Created Date</th>
-                      <th className="p-4 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5 font-mono">
-                    {endUsers.map((usr) => (
-                      <tr key={usr.id} className="hover:bg-white/5">
-                        <td className="p-4 text-emerald-400 font-bold">{usr.externalId}</td>
-                        <td className="p-4 font-sans text-white">{usr.name}</td>
-                        <td className="p-4 text-slate-400">{usr.email}</td>
-                        <td className="p-4 text-slate-500">{usr.createdAt}</td>
-                        <td className="p-4 text-right font-sans">
-                          <button
-                            onClick={() => navigate?.("end-user-demo")}
-                            className="text-xs text-emerald-400 hover:text-white bg-emerald-500/10 hover:bg-emerald-500/20 px-3 py-1 border border-emerald-500/20 transition-all font-sans"
-                          >
-                            Simulate Inbox →
-                          </button>
-                        </td>
+                    {endUsers.map((u) => (
+                      <tr key={u.id} className="hover:bg-white/5">
+                        <td className="p-4 text-emerald-400 font-semibold">{u.externalId}</td>
+                        <td className="p-4 font-sans text-white">{u.name || "Anonymous"}</td>
+                        <td className="p-4 text-slate-400">{u.email || "n/a"}</td>
+                        <td className="p-4 text-slate-500">{u.createdAt}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -448,18 +482,19 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({ tenantData, on
             <div className="space-y-6">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                  <h1 className="text-2xl sm:text-3xl font-normal text-white font-heading">
-                    Tenant Team Members
-                  </h1>
+                  <h1 className="text-2xl sm:text-3xl font-normal text-white font-heading">Team Members & RBAC</h1>
                   <p className="text-xs text-slate-400 font-sans mt-1">
-                    Role-Based Access Control (OWNER, ADMIN, DEVELOPER) for {tenantName}.
+                    Manage tenant organization access and role-based permissions.
                   </p>
                 </div>
                 <button
-                  onClick={() => setNewMemberModal(true)}
+                  onClick={() => {
+                    setModalError("");
+                    setNewMemberModal(true);
+                  }}
                   className="bg-white hover:bg-slate-200 text-black px-4 py-2.5 text-xs font-semibold rounded-none flex items-center gap-2 transition-all font-sans"
                 >
-                  <Plus className="h-4 w-4" /> Invite Team Member
+                  <Plus className="h-4 w-4" /> Invite Member
                 </button>
               </div>
 
@@ -468,22 +503,22 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({ tenantData, on
                   <thead className="bg-[#0c0c0c] border-b border-white/10 text-slate-400 font-mono">
                     <tr>
                       <th className="p-4">Member Name</th>
-                      <th className="p-4">Email</th>
-                      <th className="p-4">Role</th>
+                      <th className="p-4">Email Address</th>
+                      <th className="p-4">Tenant Role</th>
                       <th className="p-4">Joined Date</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5 font-mono">
-                    {members.map((mem) => (
-                      <tr key={mem.id} className="hover:bg-white/5">
-                        <td className="p-4 font-sans font-semibold text-white">{mem.name}</td>
-                        <td className="p-4 text-slate-400">{mem.email}</td>
+                    {members.map((m) => (
+                      <tr key={m.id} className="hover:bg-white/5">
+                        <td className="p-4 font-sans font-semibold text-white">{m.name}</td>
+                        <td className="p-4 text-emerald-400">{m.email}</td>
                         <td className="p-4">
-                          <span className="text-[10px] bg-white/10 text-white border border-white/20 px-2 py-0.5 rounded-none font-mono">
-                            {mem.role}
+                          <span className="text-[10px] bg-white/10 text-white border border-white/20 px-2 py-0.5 rounded-none font-bold">
+                            {m.role}
                           </span>
                         </td>
-                        <td className="p-4 text-slate-500">{mem.createdAt}</td>
+                        <td className="p-4 text-slate-500">{m.createdAt}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -493,84 +528,78 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({ tenantData, on
           )}
 
           {activeTab === "send" && (
-            <div className="space-y-6 max-w-2xl">
+            <div className="space-y-6">
               <div>
-                <h1 className="text-2xl sm:text-3xl font-normal text-white font-heading">
-                  Dispatch Notification Event
-                </h1>
+                <h1 className="text-2xl sm:text-3xl font-normal text-white font-heading">Dispatch Test Notification Event</h1>
                 <p className="text-xs text-slate-400 font-sans mt-1">
-                  Trigger notification pipeline to an end-user recipient.
+                  Trigger an API notification request directly into Netify ingestion stream.
                 </p>
               </div>
 
-              <div className="bg-[#080808] p-8 border border-white/10 rounded-none space-y-5">
-                <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1.5 font-sans">
-                    Target End User (External ID)
-                  </label>
-                  <select
-                    value={sendTargetId}
-                    onChange={(e) => setSendTargetId(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 px-4 py-3 text-xs font-mono text-white focus:border-white/40 focus:outline-none"
-                  >
-                    {endUsers.map((u) => (
-                      <option key={u.id} value={u.externalId} className="bg-[#080808]">
-                        {u.externalId} ({u.name} - {u.email})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1.5 font-sans">
-                    Notification Channel
-                  </label>
-                  <select
-                    value={sendChannel}
-                    onChange={(e) => setSendChannel(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 px-4 py-3 text-xs font-mono text-white focus:border-white/40 focus:outline-none"
-                  >
-                    <option value="EMAIL" className="bg-[#080808]">EMAIL (SendGrid / Resend)</option>
-                    <option value="SMS" className="bg-[#080808]">SMS (Twilio)</option>
-                    <option value="PUSH" className="bg-[#080808]">PUSH (FCM / APNs)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1.5 font-sans">
-                    JSON Data Payload
-                  </label>
-                  <textarea
-                    rows={4}
-                    value={sendPayload}
-                    onChange={(e) => setSendPayload(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 p-4 text-xs font-mono text-slate-200 focus:border-white/40 focus:outline-none"
-                  ></textarea>
-                </div>
-
-                <button
-                  onClick={handleSendNotification}
-                  disabled={sending}
-                  className="w-full py-3.5 bg-white hover:bg-slate-200 text-black text-xs font-semibold rounded-none flex items-center justify-center gap-2 transition-all font-sans"
-                >
-                  {sending ? (
-                    <div className="h-4 w-4 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
-                  ) : (
-                    "Dispatch Notification Event Now"
-                  )}
-                </button>
-              </div>
-
-              {sendResult && (
-                <div className="p-5 bg-[#080808] border border-emerald-500/30 text-xs font-mono space-y-2 rounded-none">
-                  <div className="flex items-center gap-2 text-emerald-400 font-bold">
-                    <CheckCircle2 className="h-4 w-4" /> Notification Dispatched Successfully
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="bg-[#080808] border border-white/10 p-6 space-y-4 rounded-none">
+                  <div>
+                    <label className="block text-xs font-mono text-slate-300 mb-1">Target End User ID</label>
+                    <select
+                      value={sendTargetId}
+                      onChange={(e) => setSendTargetId(e.target.value)}
+                      className="w-full bg-[#111113] border border-white/10 px-4 py-2.5 text-xs font-mono text-emerald-400 focus:border-white/40 focus:outline-none"
+                    >
+                      {endUsers.map((u) => (
+                        <option key={u.id} value={u.externalId}>{u.externalId} ({u.name})</option>
+                      ))}
+                    </select>
                   </div>
-                  <div className="text-slate-400">Message ID: <span className="text-white">{sendResult.messageId}</span></div>
-                  <div className="text-slate-400">Recipient: <span className="text-emerald-400">{sendResult.recipient}</span></div>
-                  <div className="text-slate-400">Pipeline Latency: <span className="text-white">{sendResult.latencyMs}ms</span></div>
+
+                  <div>
+                    <label className="block text-xs font-mono text-slate-300 mb-1">Notification Channel</label>
+                    <select
+                      value={sendChannel}
+                      onChange={(e) => setSendChannel(e.target.value)}
+                      className="w-full bg-[#111113] border border-white/10 px-4 py-2.5 text-xs font-mono text-white focus:border-white/40 focus:outline-none"
+                    >
+                      <option value="EMAIL">EMAIL</option>
+                      <option value="SMS">SMS</option>
+                      <option value="PUSH">PUSH</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-mono text-slate-300 mb-1">Event Payload (JSON)</label>
+                    <textarea
+                      rows={5}
+                      value={sendPayload}
+                      onChange={(e) => setSendPayload(e.target.value)}
+                      className="w-full bg-[#111113] border border-white/10 p-4 text-xs font-mono text-slate-200 focus:border-white/40 focus:outline-none"
+                    />
+                  </div>
+
+                  <button
+                    onClick={handleSendNotification}
+                    disabled={sending}
+                    className="w-full bg-white hover:bg-slate-200 text-black py-3 text-xs font-semibold rounded-none flex items-center justify-center gap-2 transition-all font-sans"
+                  >
+                    {sending ? "Ingesting Event..." : "Dispatch Notification Event Now"}
+                  </button>
                 </div>
-              )}
+
+                <div className="bg-[#080808] border border-white/10 p-6 space-y-4 rounded-none font-mono">
+                  <span className="text-xs text-slate-400 block border-b border-white/10 pb-2">Pipeline Delivery Log</span>
+
+                  {sendResult ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold">
+                        <CheckCircle2 className="h-4 w-4" /> EVENT QUEUED & ROUTED
+                      </div>
+                      <pre className="bg-[#040404] p-4 text-[11px] text-slate-300 border border-white/10 overflow-x-auto leading-relaxed">
+                        {JSON.stringify(sendResult, null, 2)}
+                      </pre>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-500 italic">No events dispatched yet. Click above to send a payload.</p>
+                  )}
+                </div>
+              </div>
             </div>
           )}
         </main>
@@ -578,50 +607,61 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({ tenantData, on
 
       {newKeyModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-[#080808] p-8 border border-white/15 space-y-5 rounded-none">
-            <h3 className="text-xl font-heading text-white">Generate Secret API Key</h3>
-            {!generatedSecretKey ? (
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1.5">Key Name</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Production Backend"
-                    value={newKeyName}
-                    onChange={(e) => setNewKeyName(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 px-4 py-3 text-xs text-white placeholder-slate-500 focus:border-white/40 focus:outline-none"
-                  />
-                </div>
-                <div className="flex justify-end gap-3 pt-2">
-                  <button onClick={() => setNewKeyModal(false)} className="px-4 py-2.5 text-xs text-slate-400 hover:text-white bg-white/5 border border-white/10">
-                    Cancel
-                  </button>
-                  <button onClick={handleGenerateApiKey} className="px-5 py-2.5 text-xs font-semibold bg-white text-black hover:bg-slate-200">
-                    Generate Key
-                  </button>
-                </div>
+          <div className="w-full max-w-md bg-[#080808] p-8 border border-white/15 space-y-4 rounded-none">
+            <h3 className="text-xl font-heading text-white">Generate API Key</h3>
+
+            {modalError && (
+              <div className="p-2.5 bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-mono">
+                {modalError}
               </div>
-            ) : (
+            )}
+
+            {generatedSecretKey ? (
               <div className="space-y-4">
-                <div className="p-3 bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-mono">
-                  ⚠️ Copy this secret key now. It will NEVER be shown again!
+                <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-mono space-y-1">
+                  <span className="font-bold block">Save your secret key!</span>
+                  <span>This key will never be shown again.</span>
                 </div>
-                <div className="p-3.5 bg-black border border-white/10 font-mono text-xs text-emerald-400 flex items-center justify-between break-all">
-                  <span>{generatedSecretKey}</span>
+                <div className="flex items-center gap-2 bg-[#040404] border border-white/10 p-3 text-xs font-mono text-white">
+                  <span className="flex-1 truncate">{generatedSecretKey}</span>
                   <button
                     onClick={() => {
                       navigator.clipboard.writeText(generatedSecretKey);
                       setCopiedKey(true);
                       setTimeout(() => setCopiedKey(false), 2000);
                     }}
-                    className="ml-2 text-slate-300 hover:text-white"
+                    className="p-1 hover:text-emerald-400"
                   >
                     {copiedKey ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
                   </button>
                 </div>
-                <button onClick={() => setNewKeyModal(false)} className="w-full py-3 bg-white text-black font-semibold text-xs">
+                <button
+                  onClick={() => setNewKeyModal(false)}
+                  className="w-full bg-white text-black py-2.5 text-xs font-semibold"
+                >
                   Done
                 </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">Key Name / Identifier *</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Production Microservice Key"
+                    value={newKeyName}
+                    onChange={(e) => setNewKeyName(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 px-4 py-2.5 text-xs text-white focus:border-white/40 focus:outline-none"
+                  />
+                </div>
+                <div className="flex justify-end gap-3 pt-2">
+                  <button onClick={() => setNewKeyModal(false)} className="px-4 py-2 text-xs text-slate-400 hover:text-white bg-white/5 border border-white/10">
+                    Cancel
+                  </button>
+                  <button onClick={handleGenerateApiKey} className="px-5 py-2 text-xs font-semibold bg-white text-black hover:bg-slate-200">
+                    Generate Secret
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -630,44 +670,51 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({ tenantData, on
 
       {newUserModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-[#080808] p-8 border border-white/15 space-y-5 rounded-none">
+          <div className="w-full max-w-md bg-[#080808] p-8 border border-white/15 space-y-4 rounded-none">
             <h3 className="text-xl font-heading text-white">Add End User</h3>
-            <div className="space-y-4">
+
+            {modalError && (
+              <div className="p-2.5 bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-mono">
+                {modalError}
+              </div>
+            )}
+
+            <div className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5">External ID (Unique per Tenant)</label>
+                <label className="block text-xs font-medium text-slate-300 mb-1">External User ID *</label>
                 <input
                   type="text"
-                  placeholder="usr_9981"
+                  placeholder="e.g. user_9812"
                   value={newExtId}
                   onChange={(e) => setNewExtId(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 px-4 py-3 text-xs font-mono text-white focus:border-white/40 focus:outline-none"
+                  className="w-full bg-white/5 border border-white/10 px-4 py-2.5 text-xs font-mono text-emerald-400 focus:border-white/40 focus:outline-none"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5">Full Name</label>
+                <label className="block text-xs font-medium text-slate-300 mb-1">Full Name</label>
                 <input
                   type="text"
                   placeholder="Jane Smith"
                   value={newUserName}
                   onChange={(e) => setNewUserName(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 px-4 py-3 text-xs text-white focus:border-white/40 focus:outline-none"
+                  className="w-full bg-white/5 border border-white/10 px-4 py-2.5 text-xs text-white focus:border-white/40 focus:outline-none"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5">Email Address</label>
+                <label className="block text-xs font-medium text-slate-300 mb-1">Email Address</label>
                 <input
                   type="email"
                   placeholder="jane@example.com"
                   value={newUserEmail}
                   onChange={(e) => setNewUserEmail(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 px-4 py-3 text-xs text-white focus:border-white/40 focus:outline-none"
+                  className="w-full bg-white/5 border border-white/10 px-4 py-2.5 text-xs text-white focus:border-white/40 focus:outline-none"
                 />
               </div>
               <div className="flex justify-end gap-3 pt-2">
-                <button onClick={() => setNewUserModal(false)} className="px-4 py-2.5 text-xs text-slate-400 hover:text-white bg-white/5 border border-white/10">
+                <button onClick={() => setNewUserModal(false)} className="px-4 py-2 text-xs text-slate-400 hover:text-white bg-white/5 border border-white/10">
                   Cancel
                 </button>
-                <button onClick={handleAddEndUser} className="px-5 py-2.5 text-xs font-semibold bg-white text-black hover:bg-slate-200">
+                <button onClick={handleAddEndUser} className="px-5 py-2 text-xs font-semibold bg-white text-black hover:bg-slate-200">
                   Add User
                 </button>
               </div>
@@ -678,55 +725,63 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({ tenantData, on
 
       {newMemberModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-[#080808] p-8 border border-white/15 space-y-5 rounded-none">
+          <div className="w-full max-w-md bg-[#080808] p-8 border border-white/15 space-y-4 rounded-none">
             <h3 className="text-xl font-heading text-white">Invite Team Member</h3>
-            <div className="space-y-4">
+
+            {modalError && (
+              <div className="p-2.5 bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-mono">
+                {modalError}
+              </div>
+            )}
+
+            <div className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5">Full Name</label>
+                <label className="block text-xs font-medium text-slate-300 mb-1">Full Name</label>
                 <input
                   type="text"
                   placeholder="Sarah Dev"
                   value={newMemberName}
                   onChange={(e) => setNewMemberName(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 px-4 py-3 text-xs text-white focus:border-white/40 focus:outline-none"
+                  className="w-full bg-white/5 border border-white/10 px-4 py-2.5 text-xs text-white focus:border-white/40 focus:outline-none"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5">Work Email</label>
+                <label className="block text-xs font-medium text-slate-300 mb-1">Work Email *</label>
                 <input
                   type="email"
                   placeholder="sarah@acme.com"
                   value={newMemberEmail}
                   onChange={(e) => setNewMemberEmail(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 px-4 py-3 text-xs text-white focus:border-white/40 focus:outline-none"
+                  className="w-full bg-white/5 border border-white/10 px-4 py-2.5 text-xs text-white focus:border-white/40 focus:outline-none"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5">Password</label>
+                <label className="block text-xs font-medium text-slate-300 mb-1">Password *</label>
                 <input
                   type="password"
                   placeholder="••••••••••••"
                   value={newMemberPass}
                   onChange={(e) => setNewMemberPass(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 px-4 py-3 text-xs text-white focus:border-white/40 focus:outline-none"
+                  className="w-full bg-white/5 border border-white/10 px-4 py-2.5 text-xs text-white focus:border-white/40 focus:outline-none"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5">Role</label>
+                <label className="block text-xs font-medium text-slate-300 mb-1">Role *</label>
                 <select
                   value={newMemberRole}
                   onChange={(e) => setNewMemberRole(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 px-4 py-3 text-xs font-mono text-white focus:border-white/40 focus:outline-none"
+                  className="w-full bg-[#111113] border border-white/10 px-4 py-2.5 text-xs font-mono text-white focus:border-white/40 focus:outline-none cursor-pointer"
                 >
-                  <option value="ADMIN" className="bg-[#080808]">ADMIN</option>
-                  <option value="DEVELOPER" className="bg-[#080808]">DEVELOPER</option>
+                  <option value="ADMIN">ADMIN</option>
+                  <option value="DEVELOPER">DEVELOPER</option>
+                  <option value="VIEWER">VIEWER</option>
                 </select>
               </div>
               <div className="flex justify-end gap-3 pt-2">
-                <button onClick={() => setNewMemberModal(false)} className="px-4 py-2.5 text-xs text-slate-400 hover:text-white bg-white/5 border border-white/10">
+                <button onClick={() => setNewMemberModal(false)} className="px-4 py-2 text-xs text-slate-400 hover:text-white bg-white/5 border border-white/10">
                   Cancel
                 </button>
-                <button onClick={handleAddMember} className="px-5 py-2.5 text-xs font-semibold bg-white text-black hover:bg-slate-200">
+                <button onClick={handleAddMember} className="px-5 py-2 text-xs font-semibold bg-white text-black hover:bg-slate-200">
                   Add Member
                 </button>
               </div>

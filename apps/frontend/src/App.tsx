@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Navbar } from "./components/Navbar";
 import { Footer } from "./components/Footer";
 import { LandingPage } from "./components/LandingPage";
@@ -17,6 +17,41 @@ export function App() {
   const [tenantData, setTenantData] = useState<any>(null);
   const [adminData, setAdminData] = useState<any>(null);
 
+  useEffect(() => {
+    const checkSessions = async () => {
+      try {
+        const tenantRes = await fetch("/api/v1/tenants/auth/me", {
+          credentials: "include",
+        });
+        if (tenantRes.ok) {
+          const data = await tenantRes.json();
+          if (data.member) {
+            setTenantData({
+              tenantId: data.member.tenantId || data.member.tenant?.id,
+              tenantName: data.member.tenant?.name,
+              slug: data.member.tenant?.slug,
+              member: data.member,
+            });
+          }
+        }
+      } catch {}
+
+      try {
+        const adminRes = await fetch("/api/v1/users/platform/me", {
+          credentials: "include",
+        });
+        if (adminRes.ok) {
+          const data = await adminRes.json();
+          if (data.admin) {
+            setAdminData({ admin: data.admin });
+          }
+        }
+      } catch {}
+    };
+
+    checkSessions();
+  }, []);
+
   const navigate = (view: string) => {
     setCurrentView(view);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -32,7 +67,22 @@ export function App() {
     setCurrentView("admin-dashboard");
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      if (tenantData) {
+        await fetch("/api/v1/tenants/auth/logout", {
+          method: "POST",
+          credentials: "include",
+        });
+      }
+      if (adminData) {
+        await fetch("/api/v1/users/platform/logout", {
+          method: "POST",
+          credentials: "include",
+        });
+      }
+    } catch {}
+
     setTenantData(null);
     setAdminData(null);
     setCurrentView("home");
