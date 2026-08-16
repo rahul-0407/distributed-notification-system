@@ -224,6 +224,12 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({ tenantData, on
   };
 
   const handleRevokeKey = async (keyId: string) => {
+    try {
+      await fetch(`/api/v1/tenants/${tenantId}/api-keys/${keyId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+    } catch {}
     setApiKeys((prev) => prev.map((k) => (k.id === keyId ? { ...k, revoked: true } : k)));
   };
 
