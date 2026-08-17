@@ -1,6 +1,10 @@
 import type { Request, Response } from "express";
 import crypto from "crypto";
 import { prisma } from "db/client";
+import { publishEvent } from "../lib/kafkaProducer";
+import type { Event } from "../types";
+
+
 
 export async function sendNotification(req: Request, res: Response): Promise<void> {
   try {
@@ -71,7 +75,17 @@ export async function sendNotification(req: Request, res: Response): Promise<voi
       },
     });
 
-    // kafka
+    const event: Event = {
+      eventId,
+      tenantId,
+      userId: endUser.id,
+      eventType: notification.eventType,
+      title: notification.title ?? "New Notification",
+      body: notification.body ?? "",
+      createdAt: notification.createdAt,
+    }
+    await publishEvent(event);
+
 
     res.status(201).json({
       message: "Notification dispatched and stored successfully",
