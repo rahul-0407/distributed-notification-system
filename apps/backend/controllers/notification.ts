@@ -32,7 +32,7 @@ export async function sendNotification(req: Request, res: Response): Promise<voi
       }
     }
 
-    const { userId, externalId, eventType, title, body } = req.body;
+    const { userId, externalId, eventType, title, body, channels, payload } = req.body;
 
     if (!tenantId) {
       res.status(400).json({ error: "Tenant ID or valid API Key is required" });
@@ -71,7 +71,7 @@ export async function sendNotification(req: Request, res: Response): Promise<voi
         eventType: eventType || "NOTIFICATION_EVENT",
         title: title || "New Notification",
         body: body || "",
-        status: "SENT",
+        status: "PENDING",
       },
     });
 
@@ -82,8 +82,10 @@ export async function sendNotification(req: Request, res: Response): Promise<voi
       eventType: notification.eventType,
       title: notification.title ?? "New Notification",
       body: notification.body ?? "",
+      payload: payload || undefined,
+      channels: Array.isArray(channels) ? channels : undefined,
       createdAt: notification.createdAt,
-    }
+    };
     await publishEvent(event);
 
 
