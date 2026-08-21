@@ -1,15 +1,21 @@
-# consumer
+# ⚡ Notification Consumer Worker (`apps/consumer`)
 
-To install dependencies:
+The background event processor for the **Distributed Notification System**. Built with **KafkaJS** and **Bun**, subscribing to Apache Kafka topics, guaranteeing idempotency, and executing multi-channel notification dispatches.
+
+## 🚀 Features
+
+- **Kafka Consumer Loop**: Listens on topic `notification-events` (`notification-consumer-group`).
+- **Idempotency & Deduplication**: Prevents duplicate event processing via database and cache checks.
+- **Multi-Channel Dispatchers**: Isolated delivery executors for **Email**, **SMS**, **Push**, and **Webhooks**.
+- **Exponential Backoff & Retries**: Automated attempt tracking with configurable retry policies (up to 3 attempts with exponential backoff).
+- **Dead Letter Queue (DLQ)**: Sends unprocessable or failed events to `notification-events-dlq` topic.
+
+## 🛠️ Run Locally
 
 ```bash
-bun install
+# Run worker in hot reload mode
+bun run dev
+
+# Run in production mode
+bun run start
 ```
-
-To run:
-
-```bash
-bun run index.ts
-```
-
-This project was created using `bun init` in bun v1.3.9. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.
