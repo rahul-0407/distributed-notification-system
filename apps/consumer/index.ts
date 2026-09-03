@@ -8,7 +8,6 @@ import type { NotificationEvent } from "./types";
 
 async function startConsumerWorker(): Promise<void> {
   console.log(`[Notification Consumer Worker] Starting worker service...`);
-  console.log(`[Config] Topic: ${env.kafkaTopic} | Group: ${env.kafkaGroupId} | Brokers: ${env.kafkaBrokers}`);
 
   try {
     const consumer = await getKafkaConsumer();

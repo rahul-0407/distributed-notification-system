@@ -8,14 +8,21 @@ export interface NotificationEvent {
   payload?: Record<string, any>;
   channels?: string[];
   createdAt?: string | Date;
-  id?: string | Buffer<ArrayBufferLike> | null;
+  id?: string | Buffer | null;
 }
 
 export type NotificationChannel = "EMAIL" | "SMS" | "PUSH" | "WEBHOOK";
 
 export interface ProcessingResult {
   success: boolean;
-  channel?: NotificationChannel;
+  channel: NotificationChannel;
   providerId?: string;
   error?: string;
+}
+
+export interface ChannelJobPayload {
+  notificationId?: string;
+  channel: NotificationChannel;
+  event: NotificationEvent;
+  enqueuedAt: string;
 }
