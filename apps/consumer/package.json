@@ -14,8 +14,10 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "@types/ioredis": "^5.0.0",
     "db": "*",
     "dotenv": "^17.4.2",
+    "ioredis": "^6.0.0",
     "kafkajs": "^2.2.4"
   }
 }

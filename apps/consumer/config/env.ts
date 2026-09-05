@@ -11,6 +11,9 @@ export const env = {
   kafkaSaslUsername: process.env.KAFKA_SASL_USERNAME || "",
   kafkaSaslPassword: process.env.KAFKA_SASL_PASSWORD || "",
 
+  redisUrl: process.env.REDIS_URL || "redis://localhost:6379",
+
+
 
   rabbitmqUrl: (process.env.RABBITMQ_URL || "amqp://guest:guest@localhost:5672"),
   rabbitmqExchange: process.env.RABBITMQ_EXCHANGE || "notification.exchange",

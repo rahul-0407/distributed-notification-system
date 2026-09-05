@@ -8,6 +8,7 @@ import { sendToDeadLetterQueue } from "./services/dlqService";
 import { startAllQueueWorkers } from "./workers";
 import type { NotificationEvent } from "./types";
 import { disconnectKafkaDLQProducer } from "./lib/kafkaProducer";
+import { disconnectRedis } from "./lib/redis";
 
 async function startConsumerWorker(): Promise<void> {
   console.log(`[Notification Consumer1 - Fan-Out Engine] Starting service...`);
@@ -64,12 +65,15 @@ async function startConsumerWorker(): Promise<void> {
 
 
 async function handleShutdown(signal: string) {
+
   console.log(`\n[Shutdown] Received ${signal}. Gracefully stopping consumer worker...`);
   await disconnectKafkaConsumer();
   await disconnectKafkaDLQProducer();
   await closeRabbitMQ();
+  await disconnectRedis();
   process.exit(0);
 }
+
 
 
 process.on("SIGINT", () => handleShutdown("SIGINT"));
