@@ -1,0 +1,14 @@
+**/node_modules
+.git
+.gitignore
+**/.turbo
+.vercel
+**/dist
+**/build
+**/coverage
+*.log
+.env*
+!.env.example
+README.md
+CLAUDE.md
+
