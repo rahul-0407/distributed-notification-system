@@ -100,9 +100,8 @@ export async function publishChannelJob(channelType: NotificationChannel, payloa
                 console.log(`[RabbitMQ Publisher] ACK: Job for Event ${payload.event.eventId} published to exchange with routing key "${routingKey}"`);
                 resolve(true)
             }
-        )
-    })
-
+        );
+    });
 }
 
 export async function createWorkerChannel(prefetchCount: number = 10): Promise<Channel> {

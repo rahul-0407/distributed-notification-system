@@ -1,10 +1,31 @@
-import { Kafka, type Consumer } from "kafkajs";
+import { Kafka, type Consumer, logLevel } from "kafkajs";
 import { env } from "../config/env";
+
+function getSslConfig() {
+  if (!env.kafkaSsl) return undefined;
+  return {
+    rejectUnauthorized: false,
+  };
+}
 
 const kafka = new Kafka({
   clientId: "notification-consumer1",
   brokers: env.kafkaBrokers,
+  ssl: getSslConfig(),
+  sasl: env.kafkaSaslUsername
+    ? {
+        mechanism: (env.kafkaSaslMechanism as any) || "scram-sha-512",
+        username: env.kafkaSaslUsername,
+        password: env.kafkaSaslPassword,
+      }
+    : undefined,
+  logLevel: logLevel.WARN,
+  retry: {
+    initialRetryTime: 300,
+    retries: 3,
+  },
 });
+
 
 let consumer: Consumer | null = null;
 
