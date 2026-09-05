@@ -1,27 +1,29 @@
 import type { EachMessagePayload } from "kafkajs";
 import { env } from "./config/env";
 import { getKafkaConsumer, disconnectKafkaConsumer } from "./lib/kafkaConsumer";
+import { initRabbitMQTopology, closeRabbitMQ } from "./lib/rabbitmq";
 import { isDuplicateEvent, markEventProcessed } from "./services/idempotency";
-import { dispatchNotificationEvent } from "./services/dispatcher";
+import { fanoutNotificationEventToRabbitMQ } from "./services/fanoutRouter";
 import { sendToDeadLetterQueue } from "./services/dlqService";
+import { startAllQueueWorkers } from "./workers";
 import type { NotificationEvent } from "./types";
 
 async function startConsumerWorker(): Promise<void> {
-  console.log(`[Notification Consumer Worker] Starting worker service...`);
+  console.log(`[Notification Consumer1 - Fan-Out Engine] Starting service...`);
 
   try {
+    await initRabbitMQTopology();
+    await startAllQueueWorkers();
+
     const consumer = await getKafkaConsumer();
 
     await consumer.subscribe({
       topic: env.kafkaTopic,
-      fromBeginning: false,
-    });
-
-    console.log(`[Notification Consumer Worker] Subscribed to topic "${env.kafkaTopic}". Listening for events...`);
+      fromBeginning: false
+    })
 
     await consumer.run({
       eachMessage: async ({ topic, partition, message }: EachMessagePayload) => {
-
         const rawPayload = message.value?.toString();
         if (!rawPayload) return;
 
@@ -35,24 +37,24 @@ async function startConsumerWorker(): Promise<void> {
             return;
           }
 
-          const results = await dispatchNotificationEvent(event);
+          await fanoutNotificationEventToRabbitMQ(event);
 
           await markEventProcessed(event);
 
-          console.log(`[Event Processed Successfully] EventID: ${event.eventId} | Results:`, results);
-        } catch (err: any) {
-          console.error(`[Processing Error] Failed to process message from topic ${topic}:`, err.message);
+        } catch (error: any) {
+          console.error(`[Processing Error] Failed to process message from topic ${topic}:`, error.message);
           try {
-            const fallbackEvent: NotificationEvent = JSON.parse(rawPayload);
-            await sendToDeadLetterQueue(fallbackEvent, err);
-          } catch {
+            const fallback: NotificationEvent = JSON.parse(rawPayload);
+            await sendToDeadLetterQueue(fallback, error.message);
+          } catch (recoveryError: any) {
             console.error(`[DLQ Error] Unparseable message payload: ${rawPayload}`);
           }
         }
-      },
-    });
+      }
+    })
+
   } catch (error: any) {
-    console.error(`[Fatal Consumer Worker Error]:`, error.message);
+    console.error(`[Fatal Consumer1 Error]:`, error.message);
     process.exit(1);
   }
 }

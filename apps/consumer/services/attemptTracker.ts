@@ -1,21 +1,22 @@
 import type { NotificationEvent, NotificationChannel, ProcessingResult } from "../types";
 import { prisma } from "db/client";
 
-export async function findAndUpdateNotificationStatus(event: NotificationEvent) {
-  const notificationRecord = await prisma.notification.findUnique({
-    where: {
-      tenantId_eventId: {
-        tenantId: event.tenantId,
-        eventId: event.eventId,
-      },
-    },
-  });
 
-  if (notificationRecord && notificationRecord.status !== "PROCESSING") {
+export async function findAndUpdateNotificationQueued(event: NotificationEvent) {
+  const notificationRecord = await prisma.notification.findUnique({
+    where:{
+      tenantId_eventId:{
+        tenantId: event.tenantId,
+        eventId: event.eventId
+      }
+    }
+  })
+
+  if(notificationRecord && notificationRecord.status !=="PROCESSING"){
     await prisma.notification.update({
-      where: { id: notificationRecord.id },
-      data: { status: "PROCESSING" },
-    });
+      where: {id: notificationRecord.id},
+      data:{status: "PROCESSING"}
+    })
   }
 
   return notificationRecord;
@@ -88,25 +89,35 @@ export async function recordAttemptFailure(attemptId: string | undefined, errorM
   }
 }
 
-export async function finalizeNotificationStatus(notificationId: string | undefined, results: ProcessingResult[]) {
+
+export async function updateParentNotificationAggregateStatus(notificationId: string | undefined) {
   if (!notificationId) return;
 
-  const successCount = results.filter((r) => r.success).length;
-  const failureCount = results.filter((r) => !r.success).length;
-
-  let finalStatus: "SENT" | "PARTIALLY_SENT" | "FAILED" = "SENT";
-  if (failureCount > 0 && successCount > 0) {
-    finalStatus = "PARTIALLY_SENT";
-  } else if (failureCount > 0 && successCount === 0) {
-    finalStatus = "FAILED";
-  }
-
   try {
+    const attempts = await prisma.notificationAttempt.findMany({
+      where: { notificationId },
+    });
+
+    if (attempts.length === 0) return;
+
+    const hasProcessing = attempts.some((a: any) => a.status === "PROCESSING" || a.status === "RETRYING" || a.status === "PENDING");
+    if (hasProcessing) return;
+
+    const hasSuccess = attempts.some((a: any) => a.status === "SENT");
+    const hasFailure = attempts.some((a: any) => a.status === "FAILED");
+
+    let finalStatus: "SENT" | "PARTIALLY_SENT" | "FAILED" = "SENT";
+    if (hasFailure && hasSuccess) {
+      finalStatus = "PARTIALLY_SENT";
+    } else if (hasFailure && !hasSuccess) {
+      finalStatus = "FAILED";
+    }
+
     await prisma.notification.update({
       where: { id: notificationId },
       data: { status: finalStatus },
     });
   } catch (err: any) {
-    console.error(`[AttemptTracker] Failed to update master notification status:`, err.message);
+    console.error(`[AttemptTracker] Failed to update parent notification aggregate status:`, err.message);
   }
 }
