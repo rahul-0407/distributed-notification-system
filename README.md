@@ -4,6 +4,11 @@ A production-shaped, event-driven, multi-tenant distributed notification engine 
 
 Centralized behind a dedicated API Gateway, powered by an asynchronous **Apache Kafka** event pipeline, **Redis** idempotency locking, and a **RabbitMQ** multi-channel fan-out engine, this system decouples caller request latency from third-party delivery provider latency, enforcing multi-tenant isolation, idempotency, exponential backoff retries, and Dead Letter Queue (DLQ) safeguards.
 
+
+<p align="center">
+  <img src="./assets/architecture-diagram.png" alt="Architecture Diagram" width="100%">
+</p>
+
 ---
 
 ## 📋 Table of Contents
