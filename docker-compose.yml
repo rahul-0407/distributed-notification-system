@@ -8,14 +8,14 @@ services:
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=notifications
+      - POSTGRES_DB=notification_db
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d notification_db"]
       interval: 5s
       timeout: 5s
-      retries: 4
+      retries: 5
 
   redis:
     image: redis:7-alpine
@@ -27,7 +27,7 @@ services:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 5s
-      retries: 4
+      retries: 5
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
@@ -35,23 +35,28 @@ services:
     restart: unless-stopped
     ports:
       - "2181:2181"
-    
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
   kafka:
     image: confluentinc/cp-kafka:7.5.0
     container_name: notification-kafka
     restart: unless-stopped
-    ports: 
+    ports:
       - "9092:9092"
-    depends_on: 
+      - "29092:29092"
+    depends_on:
       - zookeeper
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,CONTROLLER://localhost:9093
-      KAFKA_LISTENERS: PLAINTEXT://[IP_ADDRESS],CONTROLLER://[IP_ADDRESS]
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
 
   rabbitmq:
     image: rabbitmq:3-management-alpine
@@ -64,10 +69,11 @@ services:
       - RABBITMQ_DEFAULT_USER=guest
       - RABBITMQ_DEFAULT_PASS=guest
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 5s
-      timeout: 5s
-      retries: 4
+      timeout: 10s
+      retries: 5
+      start_period: 10s
 
   backend:
     build:
@@ -89,10 +95,10 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      kafka:
-        condition: service_started
       rabbitmq:
         condition: service_healthy
+      kafka:
+        condition: service_started
 
   consumer:
     build:
@@ -119,8 +125,6 @@ services:
         condition: service_started
       backend:
         condition: service_started
-    
-      
 
 volumes:
   postgres-data:

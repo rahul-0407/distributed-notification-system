@@ -3,6 +3,7 @@ import {
   Zap, Key, Users, Layers, Send, Shield, Plus, Copy, Check, 
   LogOut, CheckCircle2
 } from "lucide-react";
+import { API_BASE_URL, API_ENDPOINTS } from "../config/api";
 
 interface TenantDashboardProps {
   tenantData: any;
@@ -59,7 +60,7 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({ tenantData, on
   const fetchData = async () => {
     if (!tenantId) return;
     try {
-      const keysRes = await fetch(`/api/v1/tenants/${tenantId}/api-keys`, { credentials: "include" });
+      const keysRes = await fetch(API_ENDPOINTS.TENANT_API_KEYS(tenantId), { credentials: "include" });
       if (keysRes.ok) {
         const data = await keysRes.json();
         if (Array.isArray(data.apiKeys)) setApiKeys(data.apiKeys);
@@ -67,7 +68,7 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({ tenantData, on
     } catch {}
 
     try {
-      const usersRes = await fetch(`/api/v1/tenants/${tenantId}/end-users`, { credentials: "include" });
+      const usersRes = await fetch(API_ENDPOINTS.TENANT_END_USERS(tenantId), { credentials: "include" });
       if (usersRes.ok) {
         const data = await usersRes.json();
         if (Array.isArray(data.endUsers)) setEndUsers(data.endUsers);
@@ -75,7 +76,7 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({ tenantData, on
     } catch {}
 
     try {
-      const membersRes = await fetch(`/api/v1/tenants/${tenantId}/members`, { credentials: "include" });
+      const membersRes = await fetch(API_ENDPOINTS.TENANT_MEMBERS(tenantId), { credentials: "include" });
       if (membersRes.ok) {
         const data = await membersRes.json();
         if (Array.isArray(data.members)) setMembers(data.members);
@@ -96,7 +97,7 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({ tenantData, on
     }
 
     try {
-      const res = await fetch(`/api/v1/tenants/${tenantId}/api-keys`, {
+      const res = await fetch(API_ENDPOINTS.TENANT_API_KEYS(tenantId), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -109,59 +110,48 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({ tenantData, on
           {
             id: data.key?.id || `key_${Date.now()}`,
             name: keyName,
-            keyPrefix: data.apiKey.slice(0, 12),
+            keyPrefix: data.apiKey.substring(0, 12) + "...",
             createdAt: new Date().toISOString().split("T")[0],
             revoked: false,
           },
           ...prev,
         ]);
-      } else {
-        const mockRaw = `sk_live_${Math.random().toString(36).substring(2, 18)}`;
-        setGeneratedSecretKey(mockRaw);
-        setApiKeys((prev) => [
-          {
-            id: `key_${Date.now()}`,
-            name: keyName,
-            keyPrefix: mockRaw.slice(0, 12),
-            createdAt: new Date().toISOString().split("T")[0],
-            revoked: false,
-          },
-          ...prev,
-        ]);
+        setNewKeyName("");
       }
     } catch (err: any) {
-      setModalError(err.message || "Failed to generate API key.");
+      setModalError(err.message || "Failed to generate key.");
     }
   };
 
   const handleAddEndUser = async () => {
     setModalError("");
     const extId = newExtId.trim();
-    if (!extId) {
-      setModalError("External User ID is required.");
+    const email = newUserEmail.trim().toLowerCase();
+    const name = newUserName.trim();
+
+    if (!extId || !email || !name) {
+      setModalError("All user details are required.");
       return;
     }
 
     try {
-      const res = await fetch(`/api/v1/tenants/${tenantId}/end-users`, {
+      const res = await fetch(API_ENDPOINTS.TENANT_END_USERS(tenantId), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
           externalId: extId,
-          email: newUserEmail.trim(),
-          name: newUserName.trim(),
+          email,
+          name,
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to add end user.");
-
       setEndUsers((prev) => [
-        {
-          id: data.endUser?.id || `usr_${Date.now()}`,
+        data.endUser || {
+          id: `usr_${Date.now()}`,
           externalId: extId,
-          email: newUserEmail.trim() || "n/a",
-          name: newUserName.trim() || "Anonymous",
+          email,
+          name,
           createdAt: new Date().toISOString().split("T")[0],
         },
         ...prev,
@@ -171,7 +161,7 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({ tenantData, on
       setNewUserEmail("");
       setNewUserName("");
     } catch (err: any) {
-      setModalError(err.message || "Failed to register end user.");
+      setModalError(err.message || "Failed to add end user.");
     }
   };
 
@@ -179,35 +169,29 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({ tenantData, on
     setModalError("");
     const email = newMemberEmail.trim().toLowerCase();
     const name = newMemberName.trim();
-    if (!email || !newMemberPass) {
-      setModalError("Email and Password are required.");
-      return;
-    }
 
-    if (newMemberPass.length < 8) {
-      setModalError("Password must be at least 8 characters long.");
+    if (!email || !name || !newMemberPass) {
+      setModalError("All team member details are required.");
       return;
     }
 
     try {
-      const res = await fetch(`/api/v1/tenants/${tenantId}/members`, {
+      const res = await fetch(API_ENDPOINTS.TENANT_MEMBERS(tenantId), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          name: name || "Member",
+          name,
           email,
           password: newMemberPass,
           role: newMemberRole,
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to invite member.");
-
       setMembers((prev) => [
-        {
-          id: data.member?.id || `mem_${Date.now()}`,
-          name: name || "New Member",
+        data.member || {
+          id: `mem_${Date.now()}`,
+          name,
           email,
           role: newMemberRole,
           createdAt: new Date().toISOString().split("T")[0],
@@ -225,7 +209,7 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({ tenantData, on
 
   const handleRevokeKey = async (keyId: string) => {
     try {
-      await fetch(`/api/v1/tenants/${tenantId}/api-keys/${keyId}`, {
+      await fetch(`${API_BASE_URL}/api/v1/tenants/${tenantId}/api-keys/${keyId}`, {
         method: "DELETE",
         credentials: "include",
       });

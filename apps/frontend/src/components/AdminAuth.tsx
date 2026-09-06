@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Lock, Mail, ArrowRight, Eye, EyeOff } from "lucide-react";
+import { API_ENDPOINTS } from "../config/api";
 
 interface AdminAuthProps {
   navigate: (view: string) => void;
@@ -38,7 +39,7 @@ export const AdminAuth: React.FC<AdminAuthProps> = ({ navigate, onAdminLogin }) 
     setLoading(true);
 
     try {
-      const res = await fetch("/api/v1/users/platform/login", {
+      const res = await fetch(API_ENDPOINTS.PLATFORM_LOGIN, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

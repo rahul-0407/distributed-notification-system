@@ -32,8 +32,7 @@ export async function isDuplicateEvent(event: NotificationEvent): Promise<boolea
     existingNotification &&
       (existingNotification.status === "SENT" ||
         existingNotification.status === "PARTIALLY_SENT" ||
-        existingNotification.status === "PROCESSING" ||
-        existingNotification.status === "PENDING")
+        existingNotification.status === "PROCESSING")
   );
 
 

@@ -12,6 +12,8 @@ import { AdminAuth } from "./components/AdminAuth";
 import { AdminDashboard } from "./components/AdminDashboard";
 import { EndUserDemo } from "./components/EndUserDemo";
 
+import { API_ENDPOINTS, API_BASE_URL } from "./config/api";
+
 export function App() {
   const [currentView, setCurrentView] = useState("home");
   const [tenantData, setTenantData] = useState<any>(null);
@@ -20,7 +22,7 @@ export function App() {
   useEffect(() => {
     const checkSessions = async () => {
       try {
-        const tenantRes = await fetch("/api/v1/tenants/auth/me", {
+        const tenantRes = await fetch(API_ENDPOINTS.TENANT_ME, {
           credentials: "include",
         });
         if (tenantRes.ok) {
@@ -37,7 +39,7 @@ export function App() {
       } catch {}
 
       try {
-        const adminRes = await fetch("/api/v1/users/platform/me", {
+        const adminRes = await fetch(API_ENDPOINTS.PLATFORM_ME, {
           credentials: "include",
         });
         if (adminRes.ok) {
@@ -70,13 +72,13 @@ export function App() {
   const handleLogout = async () => {
     try {
       if (tenantData) {
-        await fetch("/api/v1/tenants/auth/logout", {
+        await fetch(`${API_BASE_URL}/api/v1/tenants/auth/logout`, {
           method: "POST",
           credentials: "include",
         });
       }
       if (adminData) {
-        await fetch("/api/v1/users/platform/logout", {
+        await fetch(API_ENDPOINTS.LOGOUT, {
           method: "POST",
           credentials: "include",
         });

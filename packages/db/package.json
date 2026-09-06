@@ -6,6 +6,9 @@
   "exports": {
     "./client": "./index.ts"
   },
+  "scripts": {
+    "seed": "bun run seed.ts"
+  },
   "devDependencies": {
     "@types/bun": "latest",
     "@types/pg": "^8.21.0",

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Lock, Mail, ArrowRight, Eye, EyeOff, Building, User } from "lucide-react";
+import { API_ENDPOINTS, API_BASE_URL } from "../config/api";
 
 interface TenantAuthProps {
   initialMode?: "login" | "signup";
@@ -49,7 +50,7 @@ export const TenantAuth: React.FC<TenantAuthProps> = ({
           return;
         }
 
-        const res = await fetch("/api/v1/tenants/auth/login", {
+        const res = await fetch(API_ENDPOINTS.TENANT_LOGIN, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
@@ -94,7 +95,7 @@ export const TenantAuth: React.FC<TenantAuthProps> = ({
           return;
         }
 
-        const res = await fetch("/api/v1/tenants/signup", {
+        const res = await fetch(`${API_BASE_URL}/api/v1/tenants/signup`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",

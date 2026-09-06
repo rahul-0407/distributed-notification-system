@@ -7,7 +7,7 @@ export function getRedisClient(): Redis {
   if (!redisClient) {
     redisClient = new Redis(env.redisUrl, {
       maxRetriesPerRequest: 3,
-      enableOfflineQueue: false,
+      enableOfflineQueue: true,
     });
 
     redisClient.on("error", (err) => {

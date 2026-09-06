@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { Shield, Building, Users, Activity, Plus, LogOut, Server, Database } from "lucide-react";
+import { Shield, Building, Users, Activity, Plus, LogOut, Server, Database, FileText, AlertTriangle, RefreshCw } from "lucide-react";
+import { API_ENDPOINTS, API_BASE_URL } from "../config/api";
 
 interface AdminDashboardProps {
   adminData: any;
@@ -7,7 +8,7 @@ interface AdminDashboardProps {
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ adminData, onLogout }) => {
-  const [activeTab, setActiveTab] = useState<"tenants" | "users" | "system">("tenants");
+  const [activeTab, setActiveTab] = useState<"tenants" | "users" | "stream" | "system">("tenants");
   
   const [tenantsList, setTenantsList] = useState<any[]>([
     { id: "tnt_acme_88", name: "Acme Corporation", slug: "acme-corp", memberCount: 5, status: "ACTIVE", createdAt: "2026-08-10" },
@@ -18,6 +19,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ adminData, onLog
   const [platformUsers, setPlatformUsers] = useState<any[]>([
     { id: adminData?.admin?.id || "usr_adm_1", name: adminData?.admin?.name || "System Super Admin", email: adminData?.admin?.email || "admin@netify.io", role: adminData?.admin?.role || "SUPER_ADMIN", createdAt: "2026-08-01" },
   ]);
+
+  const [globalNotifications, setGlobalNotifications] = useState<any[]>([]);
+  const [globalStats, setGlobalStats] = useState<any>(null);
+  const [loadingStream, setLoadingStream] = useState(false);
 
   const [newUserModal, setNewUserModal] = useState(false);
   const [newAdminName, setNewAdminName] = useState("");
@@ -31,12 +36,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ adminData, onLog
   const [newOwnerName, setNewOwnerName] = useState("");
   const [newOwnerEmail, setNewOwnerEmail] = useState("");
   const [newOwnerPassword, setNewOwnerPassword] = useState("");
-
   const [modalError, setModalError] = useState("");
 
   const fetchTenants = async () => {
     try {
-      const res = await fetch("/api/v1/tenants", { credentials: "include" });
+      const res = await fetch(`${API_BASE_URL}/api/v1/tenants`, { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data.tenants)) {
@@ -48,7 +52,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ adminData, onLog
 
   const fetchAdmins = async () => {
     try {
-      const res = await fetch("/api/v1/users/platform/admins", { credentials: "include" });
+      const res = await fetch(API_ENDPOINTS.PLATFORM_ADMINS, { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data.admins)) {
@@ -58,9 +62,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ adminData, onLog
     } catch {}
   };
 
+  const fetchGlobalTelemetry = async () => {
+    try {
+      setLoadingStream(true);
+      const [statsRes, logsRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/v1/analytics/notifications/admin/stats`, { credentials: "include" }),
+        fetch(`${API_BASE_URL}/api/v1/analytics/notifications/admin/all`, { credentials: "include" }),
+      ]);
+      if (statsRes.ok) {
+        const data = await statsRes.json();
+        setGlobalStats(data.stats || data);
+      }
+      if (logsRes.ok) {
+        const data = await logsRes.json();
+        if (Array.isArray(data.notifications)) setGlobalNotifications(data.notifications);
+      }
+    } catch {} finally {
+      setLoadingStream(false);
+    }
+  };
+
   useEffect(() => {
     fetchTenants();
     fetchAdmins();
+    fetchGlobalTelemetry();
   }, []);
 
   const handleCreateAdminUser = async () => {
@@ -73,7 +98,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ adminData, onLog
     }
 
     try {
-      const res = await fetch("/api/v1/users/platform/admins", {
+      const res = await fetch(API_ENDPOINTS.PLATFORM_ADMINS, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -120,7 +145,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ adminData, onLog
     }
 
     try {
-      const res = await fetch("/api/v1/tenants/signup", {
+      const res = await fetch(`${API_BASE_URL}/api/v1/tenants/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -208,6 +233,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ adminData, onLog
           </button>
 
           <button
+            onClick={() => setActiveTab("stream")}
+            className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-none text-xs font-sans font-medium transition-all ${
+              activeTab === "stream" ? "bg-white text-black font-semibold shadow-lg" : "text-slate-400 hover:bg-white/5 hover:text-white"
+            }`}
+          >
+            <FileText className="h-4 w-4 text-cyan-400" /> Global Event Stream ({globalNotifications.length})
+          </button>
+
+          <button
             onClick={() => setActiveTab("users")}
             className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-none text-xs font-sans font-medium transition-all ${
               activeTab === "users" ? "bg-white text-black font-semibold shadow-lg" : "text-slate-400 hover:bg-white/5 hover:text-white"
@@ -286,6 +320,98 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ adminData, onLog
                         </td>
                       </tr>
                     ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "stream" && (
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                  <h1 className="text-2xl sm:text-3xl font-normal text-white font-heading">
+                    Global Notification Stream & DLQ
+                  </h1>
+                  <p className="text-xs text-slate-400 font-sans mt-1">
+                    System-wide event processing stream across all registered tenants.
+                  </p>
+                </div>
+                <button
+                  onClick={fetchGlobalTelemetry}
+                  disabled={loadingStream}
+                  className="bg-white/10 hover:bg-white/20 text-white border border-white/15 px-4 py-2 text-xs font-semibold rounded-none flex items-center gap-2 transition-all font-sans"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${loadingStream ? "animate-spin" : ""}`} /> Refresh Global Stream
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-6">
+                <div className="bg-[#080808] p-6 border border-white/10 rounded-none space-y-2">
+                  <span className="text-xs font-mono text-slate-400">Total System Events</span>
+                  <div className="text-2xl font-bold text-white font-mono">{globalStats?.total ?? globalNotifications.length}</div>
+                </div>
+                <div className="bg-[#080808] p-6 border border-white/10 rounded-none space-y-2">
+                  <span className="text-xs font-mono text-slate-400">Delivered</span>
+                  <div className="text-2xl font-bold text-emerald-400 font-mono">{globalStats?.sent ?? 0}</div>
+                </div>
+                <div className="bg-[#080808] p-6 border border-white/10 rounded-none space-y-2">
+                  <span className="text-xs font-mono text-slate-400">Failed / Retrying</span>
+                  <div className="text-2xl font-bold text-amber-400 font-mono">{globalStats?.failed ?? 0}</div>
+                </div>
+                <div className="bg-[#080808] p-6 border border-white/10 rounded-none space-y-2">
+                  <span className="text-xs font-mono text-slate-400">DLQ Queue Depth</span>
+                  <div className="text-2xl font-bold text-red-400 font-mono">{globalStats?.dlq ?? 0}</div>
+                </div>
+              </div>
+
+              <div className="bg-[#080808] border border-white/10 rounded-none overflow-hidden">
+                <table className="w-full text-left text-xs text-slate-300">
+                  <thead className="bg-[#0c0c0c] border-b border-white/10 text-slate-400 font-mono">
+                    <tr>
+                      <th className="p-4">Tenant Scope</th>
+                      <th className="p-4">Event ID</th>
+                      <th className="p-4">Type</th>
+                      <th className="p-4">Status</th>
+                      <th className="p-4 text-right">Timestamp</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5 font-mono">
+                    {globalNotifications.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="p-6 text-center text-slate-500 italic font-sans">
+                          No global notifications logged yet.
+                        </td>
+                      </tr>
+                    ) : (
+                      globalNotifications.map((gn) => (
+                        <tr key={gn.id} className="hover:bg-white/5">
+                          <td className="p-4 text-emerald-400 font-semibold">{gn.tenantId || gn.tenant?.slug}</td>
+                          <td className="p-4 text-slate-300">{gn.eventId || gn.id}</td>
+                          <td className="p-4 font-sans text-white">{gn.eventType}</td>
+                          <td className="p-4">
+                            {gn.status === "SENT" && (
+                              <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-none font-bold">
+                                SENT
+                              </span>
+                            )}
+                            {gn.status === "PENDING" && (
+                              <span className="text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded-none font-bold">
+                                PENDING
+                              </span>
+                            )}
+                            {(gn.status === "FAILED" || gn.status === "DLQ") && (
+                              <span className="text-[10px] bg-red-500/10 text-red-400 border border-red-500/20 px-2 py-0.5 rounded-none font-bold flex items-center gap-1 w-fit">
+                                <AlertTriangle className="h-3 w-3" /> {gn.status}
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-4 text-right text-slate-400">
+                            {gn.createdAt ? new Date(gn.createdAt).toLocaleTimeString() : "Just now"}
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>

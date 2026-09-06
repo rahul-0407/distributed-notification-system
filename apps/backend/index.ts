@@ -6,14 +6,17 @@ import userRoutes from "./routes/userRoutes";
 import tenantRoutes from "./routes/tenant";
 import notificationRoutes from "./routes/notification";
 import analyticNotificationRoutes from "./routes/analyticNotification";
-
 import { errorHandler } from "./middleware/errorHandler";
 
 const app = express();
 
+const corsOrigins = env.corsOrigin.includes(",")
+  ? env.corsOrigin.split(",").map((origin) => origin.trim())
+  : env.corsOrigin;
+
 app.use(
   cors({
-    origin: true,
+    origin: corsOrigins,
     credentials: true,
   })
 );

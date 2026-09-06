@@ -1,17 +1,14 @@
-FROM oven/bun:1.2.2-alpine AS base
+FROM oven/bun:1-alpine AS base
 WORKDIR /app
 
 FROM base AS installer
 COPY package.json bun.lock turbo.json ./
-COPY packages/db/package.json ./packages/db/
-COPY apps/consumer/package.json ./apps/consumer/
-
-RUN bun install --frozen-lockfile || bun install
-
 COPY packages ./packages
 COPY apps/consumer ./apps/consumer
 
-RUN bunx prisma generate --schema=packages/db/prisma/schema.prisma
+RUN bun install
+
+RUN cd packages/db && bun run prisma generate
 
 FROM base AS runner
 WORKDIR /app

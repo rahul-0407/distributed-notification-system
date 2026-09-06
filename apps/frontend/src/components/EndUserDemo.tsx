@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Bell, Mail, Smartphone, ArrowLeft, CheckCircle2, ShoppingBag, Key, CreditCard, Sparkles, Check } from "lucide-react";
+import { API_ENDPOINTS, API_BASE_URL } from "../config/api";
 
 interface EndUserDemoProps {
   navigate: (view: string) => void;
@@ -39,6 +40,31 @@ export const EndUserDemo: React.FC<EndUserDemoProps> = ({ navigate }) => {
     { id: "push_1", title: "Acme Order Shipped", body: "Package #9921 is out for delivery via FedEx.", time: "1 hour ago" }
   ]);
 
+  const fetchUserNotifications = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/analytics/notifications/user/user_9812/notifications`, { credentials: "include" });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.notifications) && data.notifications.length > 0) {
+          const mapped = data.notifications.map((n: any) => ({
+            id: n.id,
+            title: n.title,
+            body: n.body,
+            timestamp: new Date(n.createdAt).toLocaleTimeString(),
+            read: n.status === "SENT",
+            channel: n.eventType?.includes("2FA") ? "SMS" : n.eventType?.includes("SUB") ? "PUSH" : "EMAIL",
+            sender: n.tenantId || "Netify System",
+          }));
+          setNotifications(mapped);
+        }
+      }
+    } catch {}
+  };
+
+  useEffect(() => {
+    fetchUserNotifications();
+  }, []);
+
   const markAllAsRead = () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
   };
@@ -52,12 +78,11 @@ export const EndUserDemo: React.FC<EndUserDemoProps> = ({ navigate }) => {
     if (actionType === "ORDER") {
       eventPayload = {
         tenantId: "tnt_acme_88",
-        apiKey: "sk_live_8f7b9921",
         userId: "user_9812",
         eventType: "ORDER_PLACED",
         title: "Order #9942 Confirmed! ($89.00)",
         body: "Thank you for buying. Your payment of $89.00 was processed.",
-        channel: "EMAIL",
+        channels: ["EMAIL"],
       };
       notificationItem = {
         id: `ntf_${Date.now()}`,
@@ -72,12 +97,11 @@ export const EndUserDemo: React.FC<EndUserDemoProps> = ({ navigate }) => {
       const code = Math.floor(100000 + Math.random() * 900000);
       eventPayload = {
         tenantId: "tnt_acme_88",
-        apiKey: "sk_live_8f7b9921",
         userId: "user_9812",
         eventType: "AUTH_2FA",
         title: `Security Code: ${code}`,
         body: `[Netify] Your login verification code is ${code}.`,
-        channel: "SMS",
+        channels: ["SMS"],
       };
       notificationItem = {
         id: `ntf_${Date.now()}`,
@@ -92,12 +116,11 @@ export const EndUserDemo: React.FC<EndUserDemoProps> = ({ navigate }) => {
     } else if (actionType === "SUBSCRIPTION") {
       eventPayload = {
         tenantId: "tnt_acme_88",
-        apiKey: "sk_live_8f7b9921",
         userId: "user_9812",
         eventType: "SUB_RENEWED",
         title: "Pro Plan Renewed Successfully",
         body: "Your monthly subscription renewed for $49/mo. Invoice #INV-4029.",
-        channel: "PUSH",
+        channels: ["PUSH"],
       };
       notificationItem = {
         id: `ntf_${Date.now()}`,
@@ -112,24 +135,22 @@ export const EndUserDemo: React.FC<EndUserDemoProps> = ({ navigate }) => {
     }
 
     try {
-      await fetch("/api/v1/notifications", {
+      await fetch(API_ENDPOINTS.NOTIFICATIONS_DISPATCH, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${eventPayload.apiKey}`
         },
         body: JSON.stringify(eventPayload),
       });
-    } catch {
-      
-    }
+    } catch {}
 
     setTimeout(() => {
       setNotifications((prev) => [notificationItem, ...prev]);
       setFiringEvent(null);
       setLastEventToast(`Event '${eventPayload.eventType}' produced to Kafka stream & routed to Jane Smith!`);
       setTimeout(() => setLastEventToast(null), 4000);
-    }, 400);
+      fetchUserNotifications();
+    }, 500);
   };
 
   return (

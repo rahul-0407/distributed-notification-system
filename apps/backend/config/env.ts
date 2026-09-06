@@ -15,6 +15,7 @@ const dbUrl = Bun.env.DATABASE_URL ?? Bun.env.POSTGRES_URL ?? Bun.env.SUPABASE_D
 export const env = {
   port: Number(optional("PORT", "5000")),
   baseUrl: optional("BASE_URL", "http://localhost:5000"),
+  corsOrigin: optional("CORS_ORIGIN", "http://localhost:3000"),
   jwtSecret: required("JWT_SECRET"),
 
   redisUrl: optional("REDIS_URL", "redis://localhost:6379"),
