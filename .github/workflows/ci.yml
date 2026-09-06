@@ -1,0 +1,55 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    name: Build and Type Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup BUn Environemnt
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install Monorepo Dependencies
+        run: bun install
+      
+      - name: Generate Prisma Database Client
+        run: |
+          cd packages/db
+          bunx prisma generate
+        
+      - name: Build frontend Application
+        run: |
+          cd apps/frontend
+          bun run build
+
+  docker-validation:
+    name: Docker Configuration & Image Validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate Development Docker Compose Spec
+        run: docker compose config
+      
+      - name: Validate Production Docker Compose Spec
+        run: docker compose -f docker-compose.prod.yml config
+
+      - name: Build Backend Docker Image
+        run: docker build -t notification-backend:ci -f apps/backend/Dockerfile .
+
+      - name: Build Consumer Docker Image
+        run: docker build -t notification-consumer:ci -f apps/consumer/Dockerfile .
+
