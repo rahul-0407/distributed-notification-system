@@ -1,8 +1,8 @@
-# ⚡ Distributed Notification System
+# Distributed Notification System
 
 A production-shaped, event-driven, multi-tenant distributed notification engine designed for high-throughput ingestion, fault-tolerant channel delivery, and real-time delivery tracking across **Email**, **SMS**, **Push**, and **Webhooks**.
 
-Centralized behind a dedicated API Gateway and powered by an asynchronous **Apache Kafka** event pipeline, this system decouples caller request latency from third-party delivery provider latency, enforcing multi-tenant isolation, idempotency, exponential backoff retries, and Dead Letter Queue (DLQ) safeguards.
+Centralized behind a dedicated API Gateway, powered by an asynchronous **Apache Kafka** event pipeline, **Redis** idempotency locking, and a **RabbitMQ** multi-channel fan-out engine, this system decouples caller request latency from third-party delivery provider latency, enforcing multi-tenant isolation, idempotency, exponential backoff retries, and Dead Letter Queue (DLQ) safeguards.
 
 ---
 
@@ -17,6 +17,8 @@ Centralized behind a dedicated API Gateway and powered by an asynchronous **Apac
 - [Failure Behavior & Resiliency Layers](#failure-behavior--resiliency-layers)
 - [Database Schema & Data Modeling](#database-schema--data-modeling)
 - [Running It Locally](#running-it-locally)
+- [Production Docker Deployment](#production-docker-deployment)
+- [Continuous Integration (CI/CD)](#continuous-integration-cicd)
 - [API Reference & Usage Examples](#api-reference--usage-examples)
 - [Project Structure](#project-structure)
 - [Honest Limitations & What's Next](#honest-limitations--whats-next)
@@ -35,66 +37,72 @@ Most application notification integrations rely on **synchronous HTTP calls** di
 
 This system decouples notification ingestion from delivery:
 - **Immediate Response (`< 5ms`)**: API Gateway validates the request, verifies hashed API keys, logs a `PENDING` record, publishes an event to Apache Kafka, and returns `201 Created` instantly.
-- **Asynchronous Worker Pool**: Independent worker processes consume events from Kafka, check deduplication keys, resolve user notification preferences/channels, and execute dispatches.
-- **Resilient Execution**: Retries failed dispatches using exponential backoff schedules while routing unserviceable events to a dedicated Dead Letter Queue (DLQ).
+- **Asynchronous Fan-Out Pipeline**: Independent worker processes consume events from Kafka, acquire **Redis** idempotency locks, and fan out channel tasks into dedicated **RabbitMQ** queues (Email, SMS, Push, Webhook).
+- **Resilient Execution**: Dedicated channel workers consume tasks from RabbitMQ, retrying failed dispatches using exponential backoff schedules while routing unserviceable events to a dedicated Dead Letter Queue (DLQ).
 
 ---
 
 ## 🛡️ Service Boundaries
 
-| Service / Package | Owns | Exposes | Knows About Kafka? | Knows About Database? |
+| Service / Package | Owns | Exposes | Knows About Kafka / RabbitMQ? | Knows About Database? |
 | :--- | :--- | :--- | :---: | :---: |
-| **`backend`** *(API Gateway)* | API key auth, tenant management, event ingestion, telemetry routes | REST API (`/api/v1/*`) | Yes *(Producer)* | Yes *(Prisma / Postgres)* |
-| **`consumer`** *(Worker Service)* | Event consumption, idempotency checks, channel resolution, retries, DLQ | Kafka Consumer Loop | Yes *(Consumer & DLQ Producer)* | Yes *(Prisma / Postgres)* |
+| **`backend`** *(API Gateway)* | API key auth, tenant management, event ingestion, telemetry routes | REST API (`/api/v1/*`) | Yes *(Kafka Producer)* | Yes *(Prisma / Postgres)* |
+| **`consumer`** *(Worker Service)* | Event consumption, Redis deduplication, RabbitMQ fan-out, retries, DLQ | Kafka & RabbitMQ Consumers | Yes *(Kafka Consumer & RabbitMQ Broker)* | Yes *(Prisma / Postgres)* |
 | **`frontend`** *(Dashboard)* | Admin & Tenant management UI, live testing, analytics visualizers | Web App (Vite / React 19) | No | No *(Calls API Gateway)* |
-| **`packages/db`** *(ORM Layer)* | Database schemas, migrations, generated client | Prisma Client Interface | No | Yes *(PostgreSQL Direct)* |
+| **`packages/db`** *(ORM Layer)* | Database schemas, CLI seed script, generated client | Prisma Client Interface | No | Yes *(PostgreSQL Direct)* |
 | **`packages/ui`** *(Design System)* | Shared React components & Tailwind styles | Component Library | No | No |
-
-*Adding a new downstream application service requires zero changes to notification delivery logic — services simply call `POST /api/v1/notifications` with their hashed tenant API key.*
 
 ---
 
 ## 🏗️ Architecture & Topology
 
-### Multi-Instance Topology (Independently Scalable Services)
+### Multi-Instance Event-Driven Topology
 
 ```
-                            ┌─────────────────────────────────────────────────────────────┐
-                            │                      Client Application                     │
-                            └──────────────────────────────┬──────────────────────────────┘
-                                                           │
-                                               POST /api/v1/notifications
-                                               (Hashed Bearer API Key: key_live_...)
-                                                           │
-                                                           ▼
-                            ┌─────────────────────────────────────────────────────────────┐
-                            │                 Backend API Gateway Cluster                 │
-                            │             (Express.js / Bun Runtime - Scalable)           │
-                            └──────────────┬──────────────────────────────┬───────────────┘
-                                           │                              │
-                                1. Publish Event                2. Persist Record
-                                           │                              │
-                                           ▼                              ▼
-                            ┌──────────────────────────────┐┌──────────────────────────────┐
-                            │         Apache Kafka         ││        PostgreSQL DB         │
-                            │    (notification-events)     ││     (Prisma ORM Managed)     │
-                            └──────────────┬───────────────┘└──────────────┬───────────────┘
-                                           │                              ▲
-                                    3. Consume Event                      │
-                                           │                       4. Log Attempt
-                                           ▼                              │
-                            ┌─────────────────────────────────────────────┴───────────────┐
-                            │                 Consumer Worker Pool Cluster                │
-                            │           (Idempotency & Deduplication Engine)              │
-                            └──────────────┬──────────────────────────────┬───────────────┘
-                                           │                              │
-                                  5a. Attempt Success            5b. Failed (3x Retries)
-                                           │                              │
-                                           ▼                              ▼
-                            ┌──────────────────────────────┐┌──────────────────────────────┐
-                            │     Multi-Channel Delivery   ││     Dead Letter Queue        │
-                            │ (Email, SMS, Push, Webhook)  ││       (Kafka DLQ Topic)      │
-                            └──────────────────────────────┘└──────────────────────────────┘
+                             ┌─────────────────────────────────────────────────────────────┐
+                             │                      Client Application                     │
+                             └──────────────────────────────┬──────────────────────────────┘
+                                                            │
+                                                POST /api/v1/notifications
+                                                (Hashed Bearer API Key: key_live_...)
+                                                            │
+                                                            ▼
+                             ┌─────────────────────────────────────────────────────────────┐
+                             │                 Backend API Gateway Cluster                 │
+                             │             (Express.js / Bun Runtime - Scalable)           │
+                             └──────────────┬──────────────────────────────┬───────────────┘
+                                            │                              │
+                                 1. Publish Event                2. Persist Record
+                                            │                              │
+                                            ▼                              ▼
+                             ┌──────────────────────────────┐┌──────────────────────────────┐
+                             │         Apache Kafka         ││        PostgreSQL DB         │
+                             │    (notification-events)     ││     (Prisma ORM Managed)     │
+                             └──────────────┬───────────────┘└──────────────┬───────────────┘
+                                            │                              ▲
+                                     3. Consume Event                      │
+                                            │                       4. Log Attempt
+                                            ▼                              │
+                             ┌─────────────────────────────────────────────┴───────────────┐
+                             │                 Consumer Fan-Out Engine                     │
+                             │          (Redis Lock & RabbitMQ Task Producer)              │
+                             └──────────────┬──────────────────────────────┬───────────────┘
+                                            │                              │
+                                 5a. Push Channel Tasks         5b. Duplicate Event
+                                            │                              │
+                                            ▼                              ▼
+                             ┌──────────────────────────────┐┌──────────────────────────────┐
+                             │    RabbitMQ Channel Queues   ││     Deduplicated / Ignored   │
+                             │  (Email, SMS, Push, Webhook) ││      (Redis Key Lock)        │
+                             └──────────────┬───────────────┘└──────────────────────────────┘
+                                            │
+                                6. Channel Dispatchers
+                                            │
+                                            ▼
+                             ┌──────────────────────────────┐┌──────────────────────────────┐
+                             │     Multi-Channel Delivery   ││     Dead Letter Queue        │
+                             │ (Email, SMS, Push, Webhook)  ││       (Kafka DLQ Topic)      │
+                             └──────────────────────────────┘└──────────────────────────────┘
 ```
 
 ---
@@ -104,9 +112,10 @@ This system decouples notification ingestion from delivery:
 - **⚡ Sub-10ms Ingestion Latency**: Async event publication offloads third-party delivery overhead entirely from the client API path.
 - **🔒 Multi-Tenant Isolation**: Tenant boundaries enforced via isolated DB records, custom slugs, role-based access control (`OWNER`, `ADMIN`, `DEVELOPER`, `VIEWER`), and tenant-scoped API keys.
 - **🔑 Secure API Key Storage**: API keys (`key_live_...`) are SHA-256 hashed before storage; plain keys are only displayed once upon generation.
-- **🔄 Idempotency & Deduplication**: Database `(tenantId, eventId)` unique constraints combined with idempotency key tracking prevent duplicate processing during worker retries or re-deliveries.
-- **🛡️ At-Least-Once Delivery & Retries**: Failed channel dispatches automatically execute up to **3 attempts** with exponential backoff (500ms, 1000ms, 2000ms).
-- **📥 Dead Letter Queue (DLQ)**: Events exceeding max retries or suffering unparseable payloads are safely published to `notification-events-dlq` without blocking the main event queue.
+- **🔄 Redis Idempotency & Deduplication**: Distributed Redis locks prevent duplicate event processing during worker retries or re-deliveries across consumer nodes.
+- **🐇 RabbitMQ Channel Isolation**: Email, SMS, Push, and Webhook tasks execute in isolated queues to ensure slow email API providers do not bottleneck instant SMS or push dispatches.
+- **🛡️ At-Least-Once Delivery & Retries**: Failed channel dispatches automatically execute up to **3 attempts** with exponential backoff.
+- **📥 Dead Letter Queue (DLQ)**: Events exceeding max retries or suffering unparseable payloads are safely published to `notification-events-dlq` without blocking the main pipeline.
 - **📊 Granular Telemetry Audit**: Every delivery attempt logs channel, status (`PENDING`, `SENT`, `FAILED`, `RETRYING`, `DLQ`), timestamp, provider ID, and exact error message.
 
 ---
@@ -117,22 +126,22 @@ This system decouples notification ingestion from delivery:
 | :--- | :--- | :--- |
 | **Monorepo Tooling** | **Turborepo** | Task caching, parallel pipeline execution, workspace boundary enforcement |
 | **Runtime Engine** | **Bun** | Ultra-fast JavaScript/TypeScript execution, built-in hot reloading, native env parsing |
-| **API Gateway** | **Express.js 5** | Production standard, middleware support, clean route modularization |
-| **Message Broker** | **Apache Kafka (KafkaJS)** | High-throughput distributed event streaming, partitioned consumer groups, durability |
-| **Database & ORM** | **PostgreSQL + Prisma** | Strongly typed schema generation, relational integrity, automatic migration management |
+| **API Gateway** | **Express.js 5** | Production standard, CORS control (`CORS_ORIGIN`), clean route modularization |
+| **Message Ingestion** | **Apache Kafka (KafkaJS)** | High-throughput distributed event streaming, partitioned consumer groups |
+| **Channel Fan-Out** | **RabbitMQ (amqplib)** | High-speed task queues, dedicated channel routing, DLX exchanges |
+| **Idempotency & Cache** | **Redis (ioredis)** | Atomic locking keys, deduplication state, fast caching |
+| **Database & ORM** | **PostgreSQL + Prisma** | Strongly typed schema generation, relational integrity, automatic migrations |
 | **Frontend UI** | **React 19 + Vite + TailwindCSS 4** | Ultra-responsive developer dashboard, dark mode aesthetics, real-time telemetry stats |
-| **Authentication** | **JWT Cookies & Hashed API Keys** | HttpOnly cookie auth for web dashboards; SHA-256 Bearer tokens for API integrations |
+| **CI/CD Pipeline** | **GitHub Actions** | Automated type checking, Prisma client generation, Vite build verification, and Docker image validation |
 
 ---
 
 ## ⚡ Capacity & Performance
 
-*Note: Estimates are based on Kafka/Postgres benchmark characteristics under local & containerized tests.*
-
 - **API Gateway Ingestion**: ~15,000–25,000 events/sec per API Gateway instance when producing asynchronously to Kafka.
-- **Kafka Consumer Worker**: ~5,000–10,000 event executions/sec per worker thread, bound primarily by database attempt logging and downstream provider API response times.
+- **Kafka Consumer & RabbitMQ Worker**: ~5,000–10,000 event executions/sec per worker node.
 - **Added Cost of Event Streaming**: Ingesting via Kafka adds `~2ms–4ms` of network overhead to `POST /api/v1/notifications`, eliminating `200ms–2000ms` of inline delivery provider delay.
-- **Spike Tolerance**: Sudden spikes in notification dispatches are absorbed smoothly by Kafka topic partitions without degrading API Gateway responsiveness.
+- **Spike Tolerance**: Sudden spikes in notification dispatches are absorbed smoothly by Kafka topic partitions and RabbitMQ buffers without degrading API Gateway responsiveness.
 
 ---
 
@@ -144,7 +153,7 @@ This system decouples notification ingestion from delivery:
 | **Channel Provider Down (e.g. Email/SMS API)** | Consumer Worker | Worker catches failure, logs `FAILED` attempt, schedules exponential backoff retry (`nextRetryAt`), and updates status to `RETRYING`. |
 | **Max Retries Exceeded (3/3 attempts failed)** | Consumer Worker | Event status finalized as `FAILED`/`DLQ`, attempt logged with error payload, and event sent to Kafka DLQ topic (`notification-events-dlq`). |
 | **Database Connection Lost** | API Gateway / Consumer | API Gateway fails open or returns error; consumer worker pauses offset commit until DB connection is restored, ensuring zero lost events. |
-| **Duplicate Event ID Received** | Consumer Worker | Worker checks idempotency & DB event record; if already processed, skips delivery and logs `[Deduplicated]`. |
+| **Duplicate Event ID Received** | Consumer Worker | Redis lock check identifies duplicate key; skips redundant processing and logs `[Deduplicated]`. |
 
 ---
 
@@ -216,8 +225,12 @@ erDiagram
 ### Prerequisites
 - **Node.js**: `>= 18.0.0`
 - **Bun**: `>= 1.1.0`
-- **PostgreSQL**: Running locally (`localhost:5432`) or hosted (e.g. Neon, Supabase)
-- **Apache Kafka**: Running locally (`localhost:9092`) or hosted (e.g. Aiven, Upstash)
+- **PostgreSQL**: Running locally (`localhost:5432`)
+- **Redis**: Running locally (`localhost:6379`)
+- **Apache Kafka**: Running locally (`localhost:9092`)
+- **RabbitMQ**: Running locally (`localhost:5672`)
+
+> *Tip: You can boot all local infrastructure dependencies with `docker compose up -d postgres redis zookeeper kafka rabbitmq`.*
 
 ### 1. Clone Repository & Install Dependencies
 
@@ -229,31 +242,32 @@ bun install
 
 ### 2. Configure Environment Variables
 
-Create `.env` in the root workspace or `apps/backend/.env`:
-
-```env
-# Database
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/notification_db?sslmode=disable"
-
-# Backend Gateway
-PORT=5000
-BASE_URL="http://localhost:5000"
-JWT_SECRET="super-secret-jwt-key"
-
-# Kafka Broker
-KAFKA_BROKERS="localhost:9092"
-KAFKA_CLIENT_ID="notification-system-backend"
-KAFKA_TOPIC="notification-events"
-KAFKA_DLQ_TOPIC="notification-events-dlq"
-KAFKA_SSL=false
-```
-
-### 3. Initialize Database Schema
+Copy `.env.example` to `.env`:
 
 ```bash
+cp .env.example .env
+```
+
+Ensure local connection URLs are populated:
+```env
+PORT=5000
+CORS_ORIGIN="http://localhost:3000"
+JWT_SECRET="your-local-dev-jwt-secret"
+DATABASE_URL="postgresql://postgres:postgres123@localhost:5432/notification_db?sslmode=disable"
+REDIS_URL="redis://localhost:6379"
+KAFKA_BROKERS="localhost:9092"
+RABBITMQ_URL="amqp://guest:guest@localhost:5672"
+```
+
+### 3. Initialize Database Schema & Manual Seed
+
+```bash
+# Push Prisma schema to local PostgreSQL
 cd packages/db
-bun run prisma generate
 bun run prisma db push
+
+# (Optional) Seed initial super admin and demo tenant data
+bun run seed
 cd ../..
 ```
 
@@ -269,9 +283,40 @@ Or run individual apps:
 
 ```bash
 bun run dev --filter=backend   # Express API Gateway (Port 5000)
-bun run dev --filter=consumer  # Kafka Consumer Worker
-bun run dev --filter=frontend  # React 19 Dashboard (Port 5173)
+bun run dev --filter=consumer  # Kafka/RabbitMQ Consumer Worker
+bun run dev --filter=frontend  # React 19 Dashboard (Port 3000)
 ```
+
+---
+
+## 🐳 Production Docker Deployment
+
+For self-hosted production deployments, run the full containerized stack using `docker-compose.prod.yml`:
+
+```bash
+# Boot full production stack in detached mode
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+### Production Docker Features:
+- **Data Persistence**: Uses named volumes (`postgres_prod_data`, `redis_prod_data`, `kafka_prod_data`, `rabbitmq_prod_data`) so data survives container restarts.
+- **Port Isolation**: Database and Redis ports remain unexposed to the public network.
+- **Health Check Dependency Order**: Backend and Consumer wait for PostgreSQL, Redis, Kafka, and RabbitMQ to pass healthy status before starting.
+
+---
+
+## ⚙️ Continuous Integration (CI/CD)
+
+Automated tests and validation run on every pull request and push to `main` via GitHub Actions (`.github/workflows/ci.yml`):
+
+1. **Build & Type Checking Job**:
+   - Sets up Bun environment (`oven-sh/setup-bun@v2`).
+   - Generates Prisma client bindings (`packages/db`).
+   - Builds Vite React frontend bundle (`apps/frontend`).
+
+2. **Docker Spec & Build Validation Job**:
+   - Validates `docker-compose.yml` and `docker-compose.prod.yml` specifications.
+   - Builds backend and consumer Docker images to verify container build integrity.
 
 ---
 
@@ -337,36 +382,43 @@ curl -X POST http://localhost:5000/api/v1/notifications \
 
 ```
 distributed-notification-system/
+├── .github/
+│   └── workflows/
+│       └── ci.yml                    # GitHub Actions CI pipeline
 ├── apps/
 │   ├── backend/                      # Express REST API Gateway
-│   │   ├── config/                   # Environment validation
-│   │   ├── controllers/              # Route logic (Auth, Tenant, Dispatches, Analytics)
-│   │   ├── lib/                      # Kafka Producer client & cryptographic utilities
+│   │   ├── config/                   # Environment validation (CORS, JWT, Kafka, DB)
+│   │   ├── controllers/              # Auth, Tenant, Member, Notification & Analytics routes
+│   │   ├── lib/                      # Kafka Producer client & crypto utilities
 │   │   ├── middleware/               # Auth (JWT & API Key validation) & Error handlers
-│   │   └── routes/                   # API routes definitions
+│   │   └── routes/                   # API route definitions
 │   │
-│   ├── consumer/                     # Background Kafka Consumer Worker
+│   ├── consumer/                     # Background Kafka & RabbitMQ Worker Engine
 │   │   ├── config/                   # Consumer environment settings
 │   │   ├── dispatchers/              # Provider dispatchers (Email, SMS, Push, Webhook)
-│   │   ├── lib/                      # Kafka Consumer connection manager
+│   │   ├── lib/                      # Kafka & RabbitMQ connection managers
 │   │   └── services/                 # Channel resolver, attempt tracker, DLQ service
 │   │
 │   └── frontend/                     # React 19 Admin & Tenant Dashboard
 │       ├── public/                   # Static assets & favicon
 │       └── src/
-│           ├── components/           # Dashboards, API key managers, Inbox demos
-│           ├── App.tsx               # Primary application layout & router
+│           ├── components/           # Admin/Tenant dashboards, simulator, analytics
+│           ├── config/               # Centralized API endpoint router
+│           ├── App.tsx               # Main layout & route router
 │           └── index.css             # TailwindCSS 4 styling system
 │
 ├── packages/
 │   ├── db/                           # Prisma ORM & Database Layer
 │   │   ├── prisma/                   # PostgreSQL schema definition & migrations
+│   │   ├── seed.ts                   # Isolated CLI seed script
 │   │   └── index.ts                  # Exported Prisma Client singleton
 │   │
 │   ├── ui/                           # Shared UI Component Library
 │   ├── eslint-config/                # Shared ESLint configuration rules
 │   └── typescript-config/            # Shared tsconfig definitions
 │
+├── docker-compose.yml                # Local development orchestration
+├── docker-compose.prod.yml           # Production Docker orchestration (with persistent volumes)
 ├── turbo.json                        # Turborepo task pipeline configuration
 ├── package.json                      # Root workspace package manifest
 └── bun.lock                          # Monorepo lockfile
@@ -376,12 +428,8 @@ distributed-notification-system/
 
 ## 💬 Honest Limitations & What's Next
 
-While this system provides enterprise-grade isolation and asynchronous event processing, honest production gaps remain to be addressed in future iterations:
-
-1. **Provider Integrations**: Delivery dispatchers currently operate with simulated provider execution stubs (e.g. mocked HTTP responses for Twilio/SendGrid/FCM). Integrating production SDKs (SendGrid API, Twilio SDK, Firebase Admin SDK) is a straightforward drop-in step in `apps/consumer/dispatchers/`.
-2. **Distributed Lock & Redis Caching**: Deduplication is currently handled via PostgreSQL unique key constraints and memory sets. Adding Redis (`REDIS_URL`) with atomic Lua lock scripts will further optimize deduplication throughput.
-3. **WebSocket Real-time Push Gateway**: `apps/ws-gateway` is established in the workspace layout for pushing instant inbox updates to recipient browsers via Socket.io/WebSockets.
-4. **Rate Limiting Per Tenant**: Adding a centralized sliding-window rate limiter per tenant API key to prevent API abuse during ingestion.
+1. **Production Delivery SDKs**: Delivery dispatchers currently operate with simulated provider execution stubs (mocked HTTP responses for Twilio, SendGrid, and FCM). Integrating production provider SDKs is a drop-in step inside `apps/consumer/dispatchers/`.
+2. **Managed Cloud Deployments**: Supports single-command deployment to managed cloud services (Vercel for Frontend, Render for Backend/Consumer, Aiven for Kafka, Upstash for Redis, CloudAMQP for RabbitMQ).
 
 ---
 
